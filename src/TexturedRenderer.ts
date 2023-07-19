@@ -19,10 +19,9 @@ import {
   toneMappings,
 } from "./lib/pbrShaderFunctions";
 import { createBuffer } from "./lib/createBuffer";
+import { readGTLFFile } from "./lib/gltf/processGLTF";
 
 const LIGHT_COUNT = 4;
-const COUNT_X = 6;
-const COUNT_Y = 2;
 const CUBEMAP_SIZE = 512;
 const IRRADIANCE_MAP_SIZE = 32;
 const PREFILTER_MAP_SIZE = 256;
@@ -48,7 +47,7 @@ const lights = [
   },
 ];
 
-export class Renderer {
+export class TexturedRenderer {
   state: "not-created" | "initializing" | "ready" | "destroyed" = "not-created";
 
   canvas!: HTMLCanvasElement;
@@ -123,11 +122,18 @@ export class Renderer {
         break;
     }
 
-    const sphere = await fetch("/assets/sphere.obj").then((response) =>
+    const model = await fetch("/assets/monkey.obj").then((response) =>
       response.text()
     );
 
-    this.obj = parseObjFile(sphere);
+    this.obj = parseObjFile(model);
+
+    const scene = await fetch("/assets/scene.glb").then((response) =>
+      response.arrayBuffer()
+    );
+
+    const gltf = readGTLFFile(scene);
+    console.log(gltf);
 
     this.context = this.canvas.getContext("webgpu");
     invariant(this.context, "WebGPU is not supported in this browser.");
@@ -209,9 +215,7 @@ struct VSOut {
   @location(3) worldPosition: vec3f,
 };
 
-@group(1) @binding(0) var<uniform> modelMatrices: array<mat4x4f, ${
-      COUNT_X * COUNT_Y
-    }>;
+@group(1) @binding(0) var<uniform> modelMatrix: mat4x4f;
 @group(1) @binding(1) var<uniform> viewProjectionMatrix: mat4x4f;
 
 @vertex
@@ -222,10 +226,10 @@ fn main(
   @location(2) inUV: vec2f,
 ) -> VSOut {
     var vsOut: VSOut;
-    vsOut.Position = viewProjectionMatrix * modelMatrices[instanceIndex] * vec4f(inPosition, 1);
+    vsOut.Position = viewProjectionMatrix * vec4f(inPosition, 1);
     vsOut.normal = inNormal;
     vsOut.uv = inUV;
-    vsOut.worldPosition = (modelMatrices[instanceIndex] * vec4f(inPosition, 1)).xyz;
+    vsOut.worldPosition = (modelMatrix * vec4f(inPosition, 1)).xyz;
     vsOut.instanceIndex = instanceIndex;
     return vsOut;
 }
@@ -270,8 +274,8 @@ fn main(
 ) -> @location(0) vec4f {
   let ao = 1.0;
   let albedo = select(vec3f(0.957, 0.792, 0.407), vec3f(1, 0, 0), instanceIndex < 6);
-  let metallic = select(1.0, 0.0, instanceIndex < 6);
-  let roughness = f32(instanceIndex) % 6 / 6;
+  let metallic = 0.0;
+  let roughness = 0.4;
 
   let n = normalize(normal);
   let v = normalize(uni.cameraPosition - worldPosition);
@@ -385,7 +389,7 @@ fn main(
       },
       layout: "auto",
       primitive: {
-        frontFace: "cw",
+        frontFace: "ccw",
         cullMode: "none",
         topology: "triangle-list",
       },
@@ -533,22 +537,8 @@ fn main(
       ],
     });
 
-    const distance = 2.8;
-
-    this.balls = [];
-    for (let y = 0; y < COUNT_Y; y++) {
-      for (let x = 0; x < COUNT_X; x++) {
-        this.balls.push(
-          new Vec2(
-            x * distance - (distance * (COUNT_X - 1)) / 2,
-            y * distance - distance / 2
-          )
-        );
-      }
-    }
-
     this.matrixBuffer = this.device.createBuffer({
-      size: 16 * Float32Array.BYTES_PER_ELEMENT * COUNT_X * COUNT_Y,
+      size: 16 * Float32Array.BYTES_PER_ELEMENT * 1,
       usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
     });
 
@@ -594,7 +584,7 @@ fn main(
     });
     this.depthTextureView = this.depthTexture.createView();
 
-    this.camera = new Camera(toRadians(0), toRadians(90), this.canvas, 20);
+    this.camera = new Camera(toRadians(0), toRadians(90), this.canvas, 5);
 
     this.colorTexture = this.device.createTexture({
       label: "Depth texture",
@@ -690,7 +680,7 @@ fn main(
     passEncoder.setViewport(0, 0, this.canvas.width, this.canvas.height, 0, 1);
     passEncoder.setScissorRect(0, 0, this.canvas.width, this.canvas.height);
     passEncoder.setVertexBuffer(0, this.positionBuffer);
-    passEncoder.draw(this.obj.faces.length * 3, COUNT_X * COUNT_Y, 0, 0);
+    passEncoder.draw(this.obj.faces.length * 3);
 
     const view = this.camera.getView().invert();
     const projection = Mat4.perspective(
@@ -703,14 +693,7 @@ fn main(
     const cameraPosition = this.camera.getPosition();
 
     const bufferContent = new Float32Array([...vec3ToArray(cameraPosition)]);
-    const matrixContent = new Float32Array(
-      this.balls
-        .map((ball) => {
-          return Mat4.translate(ball.x, ball.y, 0);
-        })
-        .map((matrix) => matrix.data)
-        .flat()
-    );
+    const matrixContent = new Float32Array(Mat4.identity().data);
     const viewProjectionContent = new Float32Array([
       ...view.multiply(projection).data,
     ]);

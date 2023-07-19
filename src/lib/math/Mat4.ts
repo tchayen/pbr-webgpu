@@ -5,77 +5,62 @@ export class Mat4 {
   constructor(public readonly data: number[]) {}
 
   static identity(): Mat4 {
-    return new Mat4([1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1]);
+    // prettier-ignore
+    return new Mat4([
+      1, 0, 0, 0,
+      0, 1, 0, 0,
+      0, 0, 1, 0,
+      0, 0, 0, 1
+    ]);
   }
 
   static scale(x: number, y: number, z: number): Mat4 {
-    return new Mat4([x, 0, 0, 0, 0, y, 0, 0, 0, 0, z, 0, 0, 0, 0, 1]);
+    // prettier-ignore
+    return new Mat4([
+      x, 0, 0, 0,
+      0, y, 0, 0,
+      0, 0, z, 0,
+      0, 0, 0, 1
+    ]);
   }
 
   static translate(x: number, y: number, z: number): Mat4 {
-    return new Mat4([1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, x, y, z, 1]);
+    // prettier-ignore
+    return new Mat4([
+      1, 0, 0, 0,
+      0, 1, 0, 0,
+      0, 0, 1, 0,
+      x, y, z, 1
+    ]);
   }
 
   static xRotation(angle: number): Mat4 {
+    // prettier-ignore
     return new Mat4([
-      1,
-      0,
-      0,
-      0,
-      0,
-      Math.cos(angle),
-      Math.sin(angle),
-      0,
-      0,
-      -Math.sin(angle),
-      Math.cos(angle),
-      0,
-      0,
-      0,
-      0,
-      1,
+      1, 0, 0, 0,
+      0, Math.cos(angle), Math.sin(angle), 0,
+      0, -Math.sin(angle), Math.cos(angle), 0,
+      0, 0, 0, 1,
     ]);
   }
 
   static yRotation(angle: number): Mat4 {
+    // prettier-ignore
     return new Mat4([
-      Math.cos(angle),
-      0,
-      -Math.sin(angle),
-      0,
-      0,
-      1,
-      0,
-      0,
-      Math.sin(angle),
-      0,
-      Math.cos(angle),
-      0,
-      0,
-      0,
-      0,
-      1,
+      Math.cos(angle), 0, -Math.sin(angle), 0,
+      0, 1, 0, 0,
+      Math.sin(angle), 0, Math.cos(angle), 0,
+      0, 0, 0, 1,
     ]);
   }
 
   static zRotation(angle: number): Mat4 {
+    // prettier-ignore
     return new Mat4([
-      Math.cos(angle),
-      -Math.sin(angle),
-      0,
-      0,
-      Math.sin(angle),
-      Math.cos(angle),
-      0,
-      0,
-      0,
-      0,
-      1,
-      0,
-      0,
-      0,
-      0,
-      1,
+      Math.cos(angle), -Math.sin(angle), 0, 0,
+      Math.sin(angle), Math.cos(angle), 0, 0,
+      0, 0, 1, 0,
+      0, 0, 0, 1,
     ]);
   }
 
@@ -85,31 +70,46 @@ export class Mat4 {
       .multiply(this.zRotation(z));
   }
 
+  static rotateFromQuat(q: Vec4): Mat4 {
+    let x = q.x;
+    let y = q.y;
+    let z = q.z;
+    let w = q.w;
+
+    let x2 = x * x;
+    let y2 = y * y;
+    let z2 = z * z;
+
+    let xy = x * y;
+    let xz = x * z;
+    let yz = y * z;
+    let wx = w * x;
+    let wy = w * y;
+    let wz = w * z;
+
+    // prettier-ignore
+    return new Mat4([
+      1 - 2 * (y2 + z2), 2 * (xy - wz), 2 * (xz + wy), 0,
+      2 * (xy + wz), 1 - 2 * (x2 + z2), 2 * (yz - wx), 0,
+      2 * (xz - wy), 2 * (yz + wx), 1 - 2 * (x2 + y2), 0,
+      0, 0, 0, 1
+    ])
+  }
+
   static orthographic(
     left: number,
     right: number,
     bottom: number,
     top: number,
     near: number,
-    far: number,
+    far: number
   ): Mat4 {
+    // prettier-ignore
     return new Mat4([
-      2 / (right - left),
-      0,
-      0,
-      0,
-      0,
-      2 / (top - bottom),
-      0,
-      0,
-      0,
-      0,
-      -2 / (far - near),
-      0,
-      -(right + left) / (right - left),
-      -(top + bottom) / (top - bottom),
-      -(far + near) / (far - near),
-      1,
+      2 / (right - left), 0, 0, 0,
+      0, 2 / (top - bottom), 0, 0,
+      0, 0, -2 / (far - near), 0,
+      -(right + left) / (right - left), -(top + bottom) / (top - bottom), -(far + near) / (far - near), 1,
     ]);
   }
 
@@ -120,28 +120,17 @@ export class Mat4 {
     fov: number,
     aspect: number,
     near: number,
-    far: number,
+    far: number
   ): Mat4 {
     const f = 1.0 / Math.tan(fov / 2);
     const nf = 1.0 / (near - far);
 
+    // prettier-ignore
     return new Mat4([
-      f / aspect,
-      0,
-      0,
-      0,
-      0,
-      f,
-      0,
-      0,
-      0,
-      0,
-      (far + near) * nf,
-      -1,
-      0,
-      0,
-      2 * far * near * nf,
-      0,
+      f / aspect, 0, 0, 0,
+      0, f, 0, 0,
+      0, 0, (far + near) * nf, -1,
+      0, 0, 2 * far * near * nf, 0,
     ]);
   }
 
@@ -150,23 +139,12 @@ export class Mat4 {
     const xAxis = up.cross(zAxis).normalize();
     const yAxis = zAxis.cross(xAxis).normalize();
 
+    // prettier-ignore
     return new Mat4([
-      xAxis.x,
-      xAxis.y,
-      xAxis.z,
-      0,
-      yAxis.x,
-      yAxis.y,
-      yAxis.z,
-      0,
-      zAxis.x,
-      zAxis.y,
-      zAxis.z,
-      0,
-      position.x,
-      position.y,
-      position.z,
-      1,
+      xAxis.x, xAxis.y, xAxis.z, 0,
+      yAxis.x, yAxis.y, yAxis.z, 0,
+      zAxis.x, zAxis.y, zAxis.z, 0,
+      position.x, position.y, position.z, 1,
     ]);
   }
 
@@ -220,7 +198,7 @@ export class Mat4 {
       this.data[12] * vec.x +
         this.data[13] * vec.y +
         this.data[14] * vec.z +
-        this.data[15] * vec.w,
+        this.data[15] * vec.w
     );
   }
 

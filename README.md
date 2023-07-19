@@ -29,3 +29,7 @@ I hope it will be useful to you!
 - [Learn OpenGL](https://learnopengl.com)
 - [Filament](https://google.github.io/filament/Filament.html)
 - [Real Shading in Unreal Engine 4](https://blog.selfshadow.com/publications/s2013-shading-course/karis/s2013_pbs_epic_notes_v2.pdf)
+
+## Materials
+
+- [Canon model](https://polyhaven.com/a/cannon_01)
