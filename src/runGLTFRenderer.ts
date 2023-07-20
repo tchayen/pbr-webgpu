@@ -172,9 +172,11 @@ class GLTFRenderer {
   }
 
   setupPrimitive(primitive: GLTFPrimitiveDescriptor, gltf: GLTFDescriptor) {
-    const bufferLayout = [];
-    const gpuBuffers = [];
-
+    const bufferLayout = new Map<string | number, GPUVertexBufferLayout>();
+    const gpuBuffers = new Map<
+      GPUVertexBufferLayout,
+      { buffer: GPUBuffer; offset: number }
+    >();
     for (const [attributeName, accessorIndex] of Object.entries(
       primitive.attributes
     )) {
@@ -192,35 +194,65 @@ class GLTFRenderer {
         continue;
       }
 
-      bufferLayout.push({
-        arrayStride:
-          bufferView.byteStride ?? packedArrayStrideForAccessor(accessor),
-        attributes: [
-          {
-            shaderLocation,
-            format: gpuFormatForAccessor(accessor),
-            offset: 0,
-          },
-        ],
-      });
+      const offset = accessor.byteOffset ?? 0;
 
-      const gpuBuffer = this.device.createBuffer({
-        size: alignTo(bufferView.byteLength, 4),
-        usage: GPUBufferUsage.VERTEX,
-        mappedAtCreation: true,
-      });
-      new Uint8Array(gpuBuffer.getMappedRange()).set(
-        gltf.buffers[0].subarray(
-          bufferView.byteOffset,
-          bufferView.byteOffset + bufferView.byteLength
-        )
-      );
-      gpuBuffer.unmap();
+      let buffer = bufferLayout.get(accessor.bufferView);
+      let gpuBuffer;
+      let separate =
+        buffer &&
+        // @ts-expect-error ts(7053)
+        Math.abs(offset - buffer.attributes[0].offset) >= buffer.arrayStride;
 
-      gpuBuffers.push({
-        buffer: gpuBuffer,
-        offset: accessor.byteOffset ?? 0,
+      if (!buffer || separate) {
+        buffer = {
+          arrayStride:
+            bufferView.byteStride || packedArrayStrideForAccessor(accessor),
+          attributes: [],
+        };
+        bufferLayout.set(
+          separate ? attributeName : accessor.bufferView,
+          buffer
+        );
+
+        const gpuBuffer = this.device.createBuffer({
+          size: alignTo(bufferView.byteLength, 4),
+          usage: GPUBufferUsage.VERTEX,
+          mappedAtCreation: true,
+        });
+        new Uint8Array(gpuBuffer.getMappedRange()).set(
+          gltf.buffers[0].subarray(
+            bufferView.byteOffset,
+            bufferView.byteOffset + bufferView.byteLength
+          )
+        );
+        gpuBuffer.unmap();
+
+        gpuBuffers.set(buffer, {
+          buffer: gpuBuffer,
+          offset,
+        });
+      } else {
+        gpuBuffer = gpuBuffers.get(buffer);
+        invariant(gpuBuffer, "Buffer not found.");
+        // Track the minimum offset across all attributes that share a buffer.
+        gpuBuffer.offset = Math.min(gpuBuffer.offset, offset);
+      }
+
+      // @ts-expect-error ts(2339)
+      buffer.attributes.push({
+        shaderLocation,
+        format: gpuFormatForAccessor(accessor),
+        offset,
       });
+    }
+
+    for (const buffer of bufferLayout.values()) {
+      const gpuBuffer = gpuBuffers.get(buffer);
+      invariant(gpuBuffer, "Buffer not found.");
+
+      for (const attribute of buffer.attributes) {
+        attribute.offset -= gpuBuffer.offset;
+      }
     }
 
     const module = this.device.createShaderModule({
@@ -278,7 +310,7 @@ class GLTFRenderer {
       vertex: {
         module,
         entryPoint: "vertexMain",
-        buffers: bufferLayout,
+        buffers: bufferLayout.values(),
       },
       fragment: {
         module,
@@ -320,7 +352,7 @@ class GLTFRenderer {
 
     this.primitiveGpuData.set(primitive, {
       pipeline,
-      buffers: gpuBuffers,
+      buffers: [...gpuBuffers.values()],
       indexBuffer: indexBuffer,
       indexOffset: accessor.byteOffset ?? 0,
       indexType: gpuIndexFormatForComponentType(accessor.componentType),
