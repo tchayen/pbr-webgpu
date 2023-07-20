@@ -13,7 +13,7 @@ import { Camera } from "./lib/Camera";
 import { Vec4 } from "./lib/math/Vec4";
 
 export async function setupRendering() {
-  const glb = await fetch("/assets/scene.glb").then((response) =>
+  const glb = await fetch("/assets/scene2.glb").then((response) =>
     response.arrayBuffer()
   );
 
@@ -42,7 +42,7 @@ export async function setupRendering() {
     alphaMode: "opaque",
   });
 
-  const renderer = new GLTFRenderer2(device, gltf, canvas, context);
+  const renderer = new GLTFRenderer(device, gltf, canvas, context);
 
   renderer.render();
 }
@@ -56,7 +56,10 @@ const SAMPLE_COUNT = 4;
 
 type GpuPrimitive = {
   pipeline: GPURenderPipeline;
-  buffers: GPUBuffer[];
+  buffers: {
+    buffer: GPUBuffer;
+    offset: number;
+  }[];
   indexBuffer: GPUBuffer;
   indexOffset: number;
   indexType: GPUIndexFormat;
@@ -67,7 +70,7 @@ type NodeGpuData = {
   bindGroup: GPUBindGroup;
 };
 
-class GLTFRenderer2 {
+class GLTFRenderer {
   primitiveGpuData = new Map<GLTFPrimitiveDescriptor, GpuPrimitive>();
   nodeGpuData = new Map<GLTFNodeDescriptor, NodeGpuData>();
 
@@ -177,7 +180,9 @@ class GLTFRenderer2 {
     )) {
       const accessor = gltf.accessors[accessorIndex];
       const bufferView = gltf.bufferViews[accessor.bufferView];
+
       const shaderLocation = ShaderLocations[attributeName];
+
       // invariant(
       //   shaderLocation !== undefined,
       //   `Unknown shader location ${attributeName}`
@@ -194,7 +199,7 @@ class GLTFRenderer2 {
           {
             shaderLocation,
             format: gpuFormatForAccessor(accessor),
-            offset: accessor.byteOffset ?? 0,
+            offset: 0,
           },
         ],
       });
@@ -212,7 +217,10 @@ class GLTFRenderer2 {
       );
       gpuBuffer.unmap();
 
-      gpuBuffers.push(gpuBuffer);
+      gpuBuffers.push({
+        buffer: gpuBuffer,
+        offset: accessor.byteOffset ?? 0,
+      });
     }
 
     const module = this.device.createShaderModule({
@@ -292,9 +300,7 @@ class GLTFRenderer2 {
       },
     });
 
-    if (!("indices" in primitive)) {
-      throw new Error("Primitive must have indices");
-    }
+    invariant("indices" in primitive, "Primitive must have indices.");
 
     const accessor = gltf.accessors[primitive.indices];
     const bufferView = gltf.bufferViews[accessor.bufferView];
@@ -346,7 +352,7 @@ class GLTFRenderer2 {
       ? Mat4.scale(node.scale[0], node.scale[1], node.scale[2])
       : Mat4.identity();
 
-    const rts = translation.multiply(rotation).multiply(scale);
+    const rts = scale.multiply(rotation).multiply(translation);
 
     const nodeUniformBuffer = this.device.createBuffer({
       label: node.name,
@@ -415,6 +421,11 @@ class GLTFRenderer2 {
       passEncoder.setBindGroup(1, gpuNode.bindGroup);
 
       const mesh = this.gltf.meshes[node.mesh];
+
+      if (!mesh) {
+        continue;
+      }
+
       for (const primitive of mesh.primitives) {
         const gpuPrimitive = this.primitiveGpuData.get(primitive);
         invariant(gpuPrimitive, "Primitive not found.");
@@ -423,7 +434,11 @@ class GLTFRenderer2 {
         for (const [bufferIndex, gpuBuffer] of Object.entries(
           gpuPrimitive.buffers
         )) {
-          passEncoder.setVertexBuffer(Number(bufferIndex), gpuBuffer);
+          passEncoder.setVertexBuffer(
+            Number(bufferIndex),
+            gpuBuffer.buffer,
+            gpuBuffer.offset
+          );
         }
 
         passEncoder.setIndexBuffer(

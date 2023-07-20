@@ -107,7 +107,7 @@ export function readGlb(data: ArrayBuffer) {
   const binaryData = new Uint8Array(data, pointer, binaryLength);
 
   const json = JSON.parse(new TextDecoder().decode(jsonData));
-  invariant(isGltfDescriptor(json), "Invalid glTF descriptor.");
+  // invariant(isGltfDescriptor(json), "Invalid glTF descriptor.");
 
   invariant(json.buffers.length === 1, "Only one buffer is supported.");
   json.buffers = [binaryData];
