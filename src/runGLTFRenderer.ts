@@ -60,7 +60,7 @@ type GpuPrimitive = {
     buffer: GPUBuffer;
     offset: number;
   }[];
-  instances: GPUBindGroup[];
+  instances: { first: number; count: number };
   indexBuffer: GPUBuffer;
   indexOffset: number;
   indexType: GPUIndexFormat;
@@ -69,6 +69,13 @@ type GpuPrimitive = {
 
 type NodeGpuData = {
   bindGroup: GPUBindGroup;
+};
+
+type PrimitiveInstances = {
+  matrices: Map<GLTFPrimitiveDescriptor, Mat4[]>;
+  total: number;
+  arrayBuffer: Float32Array | null;
+  offset: number;
 };
 
 class GLTFRenderer {
@@ -84,7 +91,7 @@ class GLTFRenderer {
   nodeGpuData = new Map<GLTFNodeDescriptor, NodeGpuData>();
 
   cameraBindGroupLayout: GPUBindGroupLayout;
-  nodeBindGroupLayout: GPUBindGroupLayout;
+  instanceBindGroupLayout: GPUBindGroupLayout;
   pipelineLayout: GPUPipelineLayout;
   cameraUniformBuffer: GPUBuffer;
   cameraBindGroup: GPUBindGroup;
@@ -94,6 +101,13 @@ class GLTFRenderer {
   depthTextureView: GPUTextureView;
   colorTexture: GPUTexture;
   colorTextureView: GPUTextureView;
+
+  // Maps node to a parent.
+  nodeParents = new Map<GLTFNodeDescriptor, GLTFNodeDescriptor>();
+
+  // Maps node to its transform.
+  nodeTransforms = new Map<GLTFNodeDescriptor, Mat4>();
+  instanceBindGroup: GPUBindGroup;
 
   constructor(
     private device: GPUDevice,
@@ -105,13 +119,12 @@ class GLTFRenderer {
 
     this.camera = new Camera(0, 0);
 
-    this.nodeBindGroupLayout = this.device.createBindGroupLayout({
-      label: `glTF Node BindGroupLayout`,
+    this.instanceBindGroupLayout = this.device.createBindGroupLayout({
       entries: [
         {
           binding: 0, // Node uniforms
           visibility: GPUShaderStage.VERTEX,
-          buffer: {},
+          buffer: { type: "read-only-storage" },
         },
       ],
     });
@@ -129,7 +142,10 @@ class GLTFRenderer {
 
     this.pipelineLayout = this.device.createPipelineLayout({
       label: "glTF Pipeline Layout",
-      bindGroupLayouts: [this.cameraBindGroupLayout, this.nodeBindGroupLayout],
+      bindGroupLayouts: [
+        this.cameraBindGroupLayout,
+        this.instanceBindGroupLayout,
+      ],
     });
 
     this.cameraUniformBuffer = this.device.createBuffer({
@@ -148,11 +164,14 @@ class GLTFRenderer {
       ],
     });
 
-    const primitiveInstances = new Map<
-      GLTFPrimitiveDescriptor,
-      GPUBindGroup[]
-    >();
+    const primitiveInstances: PrimitiveInstances = {
+      matrices: new Map(),
+      total: 0,
+      arrayBuffer: null,
+      offset: 0,
+    };
 
+    // Set up node transforms.
     for (const node of gltf.nodes) {
       this.nodeTransforms.set(node, this.getRTS(node));
       if (node.children) {
@@ -166,11 +185,34 @@ class GLTFRenderer {
       this.setupNode(node, primitiveInstances);
     }
 
+    const instanceBuffer = this.device.createBuffer({
+      size: 16 * Float32Array.BYTES_PER_ELEMENT * primitiveInstances.total,
+      usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST,
+      mappedAtCreation: true,
+    });
+
+    primitiveInstances.arrayBuffer = new Float32Array(
+      instanceBuffer.getMappedRange()
+    );
+
     for (const mesh of gltf.meshes) {
       for (const primitive of mesh.primitives) {
         this.setupPrimitive(primitive, gltf, primitiveInstances);
       }
     }
+
+    instanceBuffer.unmap();
+
+    this.instanceBindGroup = this.device.createBindGroup({
+      label: `glTF Instance BindGroup`,
+      layout: this.instanceBindGroupLayout,
+      entries: [
+        {
+          binding: 0, // Instance storage buffer
+          resource: { buffer: instanceBuffer },
+        },
+      ],
+    });
 
     this.depthTexture = this.device.createTexture({
       label: "Color texture",
@@ -252,7 +294,7 @@ class GLTFRenderer {
         };
 
         @group(0) @binding(0) var<uniform> camera: Camera;
-        @group(1) @binding(0) var<uniform> model: mat4x4f;
+        @group(1) @binding(0) var<storage> models: array<mat4x4f>;
 
         struct VertexInput {
           @location(0) position: vec4f,
@@ -265,10 +307,10 @@ class GLTFRenderer {
         };
 
         @vertex
-        fn vertexMain(input: VertexInput) -> VertexOutput {
+        fn vertexMain(input: VertexInput, @builtin(instance_index) instance: u32) -> VertexOutput {
           var output: VertexOutput;
-          output.position = camera.projection * camera.view * model * input.position;
-          output.normal = normalize((model * vec4f(input.normal, 0.0)).xyz);
+          output.position = camera.projection * camera.view * models[instance] * input.position;
+          output.normal = normalize((models[instance] * vec4f(input.normal, 0.0)).xyz);
           return output;
         }
 
@@ -292,10 +334,30 @@ class GLTFRenderer {
     });
   }
 
+  setupPrimitiveInstances(
+    primitive: GLTFPrimitiveDescriptor,
+    primitiveInstances: PrimitiveInstances
+  ) {
+    const instances = primitiveInstances.matrices.get(primitive);
+    invariant(instances, "Primitive instances not found.");
+
+    const first = primitiveInstances.offset;
+    const count = instances.length;
+
+    invariant(primitiveInstances.arrayBuffer, "Array buffer not found.");
+    for (let i = 0; i < count; i++) {
+      primitiveInstances.arrayBuffer.set(instances[i].data, (first + i) * 16);
+    }
+
+    primitiveInstances.offset += count;
+
+    return { first, count };
+  }
+
   setupPrimitive(
     primitive: GLTFPrimitiveDescriptor,
     gltf: GLTFDescriptor,
-    primitiveInstances: Map<GLTFPrimitiveDescriptor, GPUBindGroup[]>
+    primitiveInstances: PrimitiveInstances
   ) {
     const bufferLayout = new Map<string | number, GPUVertexBufferLayout>();
     const gpuBuffers = new Map<
@@ -424,7 +486,7 @@ class GLTFRenderer {
     const gpuPrimitive = {
       pipeline: pipeline.pipeline,
       buffers: sortedGpuBuffers,
-      instances: primitiveInstances.get(primitive) ?? [],
+      instances: this.setupPrimitiveInstances(primitive, primitiveInstances),
       indexBuffer: indexBuffer,
       indexOffset: accessor.byteOffset ?? 0,
       indexType: gpuIndexFormatForComponentType(accessor.componentType),
@@ -433,9 +495,6 @@ class GLTFRenderer {
 
     pipeline.primitives.push(gpuPrimitive);
   }
-
-  nodeParents = new Map<GLTFNodeDescriptor, GLTFNodeDescriptor>();
-  nodeTransforms = new Map<GLTFNodeDescriptor, Mat4>();
 
   getRTS(node: GLTFNodeDescriptor) {
     let rts;
@@ -471,10 +530,7 @@ class GLTFRenderer {
     return rts;
   }
 
-  setupNode(
-    node: GLTFNodeDescriptor,
-    primitiveInstances: Map<GLTFPrimitiveDescriptor, GPUBindGroup[]>
-  ) {
+  setupNode(node: GLTFNodeDescriptor, primitiveInstances: PrimitiveInstances) {
     let rts = this.nodeTransforms.get(node);
     invariant(rts, "Node transform not found.");
 
@@ -501,37 +557,17 @@ class GLTFRenderer {
       return;
     }
 
-    const nodeUniformBuffer = this.device.createBuffer({
-      label: node.name,
-      size: 16 * Float32Array.BYTES_PER_ELEMENT,
-      usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
-    });
-
-    this.device.queue.writeBuffer(
-      nodeUniformBuffer,
-      0,
-      new Float32Array(rts.data)
-    );
-
-    const bindGroup = this.device.createBindGroup({
-      label: node.name,
-      layout: this.nodeBindGroupLayout,
-      entries: [
-        {
-          binding: 0, // Node uniforms
-          resource: { buffer: nodeUniformBuffer },
-        },
-      ],
-    });
-
     for (const primitive of mesh.primitives) {
-      let instances = primitiveInstances.get(primitive);
+      let instances = primitiveInstances.matrices.get(primitive);
       if (instances === undefined) {
         instances = [];
-        primitiveInstances.set(primitive, instances);
+        primitiveInstances.matrices.set(primitive, instances);
       }
-      instances.push(bindGroup);
+      instances.push(rts);
     }
+
+    // Make sure to add the number of matrices used for this mesh to the total.
+    primitiveInstances.total += mesh.primitives.length;
   }
 
   render() {
@@ -571,6 +607,8 @@ class GLTFRenderer {
     this.device.queue.writeBuffer(this.cameraUniformBuffer, 0, cameraUniforms);
 
     passEncoder.setBindGroup(0, this.cameraBindGroup);
+    passEncoder.setBindGroup(1, this.instanceBindGroup);
+
     for (const gpuPipeline of this.pipelineGpuData.values()) {
       passEncoder.setPipeline(gpuPipeline.pipeline);
 
@@ -589,10 +627,14 @@ class GLTFRenderer {
           gpuPrimitive.indexType,
           gpuPrimitive.indexOffset
         );
-        for (const bindGroup of gpuPrimitive.instances) {
-          passEncoder.setBindGroup(1, bindGroup);
-          passEncoder.drawIndexed(gpuPrimitive.drawCount);
-        }
+
+        passEncoder.drawIndexed(
+          gpuPrimitive.drawCount,
+          gpuPrimitive.instances.count,
+          0,
+          0,
+          gpuPrimitive.instances.first
+        );
       }
     }
     passEncoder.end();
