@@ -13,7 +13,7 @@ import { Camera } from "./lib/Camera";
 import { Vec4 } from "./lib/math/Vec4";
 
 export async function setupRendering() {
-  const glb = await fetch("/assets/scene2.glb").then((response) =>
+  const glb = await fetch("/assets/buggy.glb").then((response) =>
     response.arrayBuffer()
   );
 
@@ -60,6 +60,7 @@ type GpuPrimitive = {
     buffer: GPUBuffer;
     offset: number;
   }[];
+  instances: GPUBindGroup[];
   indexBuffer: GPUBuffer;
   indexOffset: number;
   indexType: GPUIndexFormat;
@@ -71,7 +72,13 @@ type NodeGpuData = {
 };
 
 class GLTFRenderer {
-  pipelineGpuData = new Map<string, GPURenderPipeline>();
+  pipelineGpuData = new Map<
+    string,
+    {
+      pipeline: GPURenderPipeline;
+      primitives: GpuPrimitive[];
+    }
+  >();
 
   primitiveGpuData = new Map<GLTFPrimitiveDescriptor, GpuPrimitive>();
   nodeGpuData = new Map<GLTFNodeDescriptor, NodeGpuData>();
@@ -141,13 +148,27 @@ class GLTFRenderer {
       ],
     });
 
+    const primitiveInstances = new Map<
+      GLTFPrimitiveDescriptor,
+      GPUBindGroup[]
+    >();
+
     for (const node of gltf.nodes) {
-      this.setupNode(node);
+      this.nodeTransforms.set(node, this.getRTS(node));
+      if (node.children) {
+        for (const child of node.children) {
+          this.nodeParents.set(this.gltf.nodes[child], node);
+        }
+      }
+    }
+
+    for (const node of gltf.nodes) {
+      this.setupNode(node, primitiveInstances);
     }
 
     for (const mesh of gltf.meshes) {
       for (const primitive of mesh.primitives) {
-        this.setupPrimitive(primitive, gltf);
+        this.setupPrimitive(primitive, gltf, primitiveInstances);
       }
     }
 
@@ -175,14 +196,14 @@ class GLTFRenderer {
 
   getPipelineForPrimitive(args: GPUVertexBufferLayout[]) {
     const key = JSON.stringify(args);
-    let pipeline = this.pipelineGpuData.get(key);
+    let existingPipeline = this.pipelineGpuData.get(key);
 
-    if (pipeline) {
-      return pipeline;
+    if (existingPipeline) {
+      return existingPipeline;
     }
 
     const module = this.getShaderModule();
-    pipeline = this.device.createRenderPipeline({
+    const pipeline = this.device.createRenderPipeline({
       label: "glTF Pipeline",
       layout: this.pipelineLayout,
       vertex: {
@@ -210,9 +231,14 @@ class GLTFRenderer {
       },
     });
 
-    this.pipelineGpuData.set(key, pipeline);
+    const gpuPipeline = {
+      pipeline,
+      primitives: [],
+    };
 
-    return pipeline;
+    this.pipelineGpuData.set(key, gpuPipeline);
+
+    return gpuPipeline;
   }
 
   getShaderModule() {
@@ -266,7 +292,11 @@ class GLTFRenderer {
     });
   }
 
-  setupPrimitive(primitive: GLTFPrimitiveDescriptor, gltf: GLTFDescriptor) {
+  setupPrimitive(
+    primitive: GLTFPrimitiveDescriptor,
+    gltf: GLTFDescriptor,
+    primitiveInstances: Map<GLTFPrimitiveDescriptor, GPUBindGroup[]>
+  ) {
     const bufferLayout = new Map<string | number, GPUVertexBufferLayout>();
     const gpuBuffers = new Map<
       GPUVertexBufferLayout,
@@ -389,41 +419,87 @@ class GLTFRenderer {
 
     invariant("indices" in primitive, "Primitive must have indices.");
 
-    this.primitiveGpuData.set(primitive, {
-      pipeline: this.getPipelineForPrimitive(sortedBufferLayout),
+    const pipeline = this.getPipelineForPrimitive(sortedBufferLayout);
+
+    const gpuPrimitive = {
+      pipeline: pipeline.pipeline,
       buffers: sortedGpuBuffers,
+      instances: primitiveInstances.get(primitive) ?? [],
       indexBuffer: indexBuffer,
       indexOffset: accessor.byteOffset ?? 0,
       indexType: gpuIndexFormatForComponentType(accessor.componentType),
       drawCount: accessor.count,
-    });
+    };
+
+    pipeline.primitives.push(gpuPrimitive);
   }
 
-  setupNode(node: GLTFNodeDescriptor) {
-    const translation = node.translation
-      ? Mat4.translate(
-          node.translation[0],
-          node.translation[1],
-          node.translation[2]
-        )
-      : Mat4.identity();
+  nodeParents = new Map<GLTFNodeDescriptor, GLTFNodeDescriptor>();
+  nodeTransforms = new Map<GLTFNodeDescriptor, Mat4>();
 
-    const rotation = node.rotation
-      ? Mat4.rotateFromQuat(
-          new Vec4(
-            node.rotation[0],
-            node.rotation[1],
-            node.rotation[2],
-            node.rotation[3]
+  getRTS(node: GLTFNodeDescriptor) {
+    let rts;
+    if (node.matrix) {
+      rts = new Mat4(node.matrix);
+    } else {
+      const translation = node.translation
+        ? Mat4.translate(
+            node.translation[0],
+            node.translation[1],
+            node.translation[2]
           )
-        )
-      : Mat4.identity();
+        : Mat4.identity();
 
-    const scale = node.scale
-      ? Mat4.scale(node.scale[0], node.scale[1], node.scale[2])
-      : Mat4.identity();
+      const rotation = node.rotation
+        ? Mat4.rotateFromQuat(
+            new Vec4(
+              node.rotation[0],
+              node.rotation[1],
+              node.rotation[2],
+              node.rotation[3]
+            )
+          )
+        : Mat4.identity();
 
-    const rts = scale.multiply(rotation).multiply(translation);
+      const scale = node.scale
+        ? Mat4.scale(node.scale[0], node.scale[1], node.scale[2])
+        : Mat4.identity();
+
+      rts = scale.multiply(rotation).multiply(translation);
+    }
+
+    return rts;
+  }
+
+  setupNode(
+    node: GLTFNodeDescriptor,
+    primitiveInstances: Map<GLTFPrimitiveDescriptor, GPUBindGroup[]>
+  ) {
+    let rts = this.nodeTransforms.get(node);
+    invariant(rts, "Node transform not found.");
+
+    const mesh = this.gltf.meshes[node.mesh];
+
+    if (node.children) {
+      for (const child of node.children) {
+        this.nodeParents.set(this.gltf.nodes[child], node);
+      }
+    }
+
+    let parent = this.nodeParents.get(node);
+    while (parent) {
+      const parentTransform = this.nodeTransforms.get(parent);
+      invariant(parentTransform, "Parent transform not found.");
+
+      rts = rts.multiply(parentTransform);
+
+      parent = this.nodeParents.get(parent);
+    }
+
+    if (!mesh) {
+      // TODO: why it doesn't exist?
+      return;
+    }
 
     const nodeUniformBuffer = this.device.createBuffer({
       label: node.name,
@@ -448,7 +524,14 @@ class GLTFRenderer {
       ],
     });
 
-    this.nodeGpuData.set(node, { bindGroup });
+    for (const primitive of mesh.primitives) {
+      let instances = primitiveInstances.get(primitive);
+      if (instances === undefined) {
+        instances = [];
+        primitiveInstances.set(primitive, instances);
+      }
+      instances.push(bindGroup);
+    }
   }
 
   render() {
@@ -488,20 +571,10 @@ class GLTFRenderer {
     this.device.queue.writeBuffer(this.cameraUniformBuffer, 0, cameraUniforms);
 
     passEncoder.setBindGroup(0, this.cameraBindGroup);
-    for (const [node, gpuNode] of this.nodeGpuData) {
-      passEncoder.setBindGroup(1, gpuNode.bindGroup);
+    for (const gpuPipeline of this.pipelineGpuData.values()) {
+      passEncoder.setPipeline(gpuPipeline.pipeline);
 
-      const mesh = this.gltf.meshes[node.mesh];
-
-      if (!mesh) {
-        continue;
-      }
-
-      for (const primitive of mesh.primitives) {
-        const gpuPrimitive = this.primitiveGpuData.get(primitive);
-        invariant(gpuPrimitive, "Primitive not found.");
-        passEncoder.setPipeline(gpuPrimitive.pipeline);
-
+      for (const gpuPrimitive of gpuPipeline.primitives) {
         for (const [bufferIndex, gpuBuffer] of Object.entries(
           gpuPrimitive.buffers
         )) {
@@ -511,16 +584,17 @@ class GLTFRenderer {
             gpuBuffer.offset
           );
         }
-
         passEncoder.setIndexBuffer(
           gpuPrimitive.indexBuffer,
           gpuPrimitive.indexType,
           gpuPrimitive.indexOffset
         );
-        passEncoder.drawIndexed(gpuPrimitive.drawCount);
+        for (const bindGroup of gpuPrimitive.instances) {
+          passEncoder.setBindGroup(1, bindGroup);
+          passEncoder.drawIndexed(gpuPrimitive.drawCount);
+        }
       }
     }
-
     passEncoder.end();
     this.device.queue.submit([commandEncoder.finish()]);
 

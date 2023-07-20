@@ -3,7 +3,7 @@ import { Vec3 } from "./math/Vec3";
 
 export class Camera {
   target = new Vec3(0, 0, 0);
-  distance = 10;
+  distance = 150;
 
   scrollDirection = 0;
 

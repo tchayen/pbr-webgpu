@@ -41,6 +41,8 @@ export type GLTFPrimitiveDescriptor = {
 export type GLTFNodeDescriptor = {
   mesh: number;
   name: string;
+  children?: number[];
+  matrix?: number[];
   rotation?: [number, number, number, number];
   scale?: [number, number, number];
   translation?: [number, number, number];
