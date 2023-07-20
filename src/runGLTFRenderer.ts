@@ -71,6 +71,8 @@ type NodeGpuData = {
 };
 
 class GLTFRenderer {
+  pipelineGpuData = new Map<string, GPURenderPipeline>();
+
   primitiveGpuData = new Map<GLTFPrimitiveDescriptor, GpuPrimitive>();
   nodeGpuData = new Map<GLTFNodeDescriptor, NodeGpuData>();
 
@@ -171,6 +173,99 @@ class GLTFRenderer {
     this.colorTextureView = this.colorTexture.createView();
   }
 
+  getPipelineForPrimitive(args: GPUVertexBufferLayout[]) {
+    const key = JSON.stringify(args);
+    let pipeline = this.pipelineGpuData.get(key);
+
+    if (pipeline) {
+      return pipeline;
+    }
+
+    const module = this.getShaderModule();
+    pipeline = this.device.createRenderPipeline({
+      label: "glTF Pipeline",
+      layout: this.pipelineLayout,
+      vertex: {
+        module,
+        entryPoint: "vertexMain",
+        buffers: args,
+      },
+      fragment: {
+        module,
+        entryPoint: "fragmentMain",
+        targets: [{ format: navigator.gpu.getPreferredCanvasFormat() }],
+      },
+      primitive: {
+        frontFace: "cw",
+        cullMode: "none",
+        topology: "triangle-list",
+      },
+      depthStencil: {
+        depthWriteEnabled: true,
+        depthCompare: "less",
+        format: "depth24plus",
+      },
+      multisample: {
+        count: SAMPLE_COUNT,
+      },
+    });
+
+    this.pipelineGpuData.set(key, pipeline);
+
+    return pipeline;
+  }
+
+  getShaderModule() {
+    return this.device.createShaderModule({
+      code: /* wgsl */ `
+        struct Camera {
+          projection: mat4x4f,
+          view: mat4x4f,
+          position: vec3f,
+          time: f32,
+        };
+
+        @group(0) @binding(0) var<uniform> camera: Camera;
+        @group(1) @binding(0) var<uniform> model: mat4x4f;
+
+        struct VertexInput {
+          @location(0) position: vec4f,
+          @location(1) normal: vec3f,
+        }
+
+        struct VertexOutput {
+          @builtin(position) position: vec4f,
+          @location(0) normal: vec3f,
+        };
+
+        @vertex
+        fn vertexMain(input: VertexInput) -> VertexOutput {
+          var output: VertexOutput;
+          output.position = camera.projection * camera.view * model * input.position;
+          output.normal = normalize((model * vec4f(input.normal, 0.0)).xyz);
+          return output;
+        }
+
+        const lightDirection = vec3f(0.25, 0.5, 1);
+        const lightColor = vec3f(1);
+        const materialColor = vec3f(0.8);
+
+        @fragment
+        fn fragmentMain(input: VertexOutput) -> @location(0) vec4f {
+          let n = normalize(input.normal);
+          let l = normalize(lightDirection);
+          let nDotL = max(dot(n, l), 0.0);
+
+          var result = materialColor * nDotL + vec3f(0.1);
+          result = result / (result + vec3f(1.0));
+          result = pow(result, vec3f(1.0 / 2.2));
+
+          return vec4f(result, 1.0);
+        }
+      `,
+    });
+  }
+
   setupPrimitive(primitive: GLTFPrimitiveDescriptor, gltf: GLTFDescriptor) {
     const bufferLayout = new Map<string | number, GPUVertexBufferLayout>();
     const gpuBuffers = new Map<
@@ -238,7 +333,7 @@ class GLTFRenderer {
         gpuBuffer.offset = Math.min(gpuBuffer.offset, offset);
       }
 
-      // @ts-expect-error ts(2339)
+      // @ts-expect-error Property 'push' does not exist on type 'Iterable<GPUVertexAttribute>'.ts(2339)
       buffer.attributes.push({
         shaderLocation,
         format: gpuFormatForAccessor(accessor),
@@ -253,86 +348,28 @@ class GLTFRenderer {
       for (const attribute of buffer.attributes) {
         attribute.offset -= gpuBuffer.offset;
       }
+
+      // @ts-expect-error Property 'sort' does not exist on type 'Iterable<GPUVertexAttribute>'.ts(2339)
+      buffer.attributes = buffer.attributes.sort(
+        (a: GPUVertexAttribute, b: GPUVertexAttribute) => {
+          return a.shaderLocation - b.shaderLocation;
+        }
+      );
     }
 
-    const module = this.device.createShaderModule({
-      code: /* wgsl */ `
-        struct Camera {
-          projection: mat4x4f,
-          view: mat4x4f,
-          position: vec3f,
-          time: f32,
-        };
+    const sortedBufferLayout = [...bufferLayout.values()].sort(
+      (a: GPUVertexBufferLayout, b: GPUVertexBufferLayout) => {
+        // @ts-ignore Property '0' does not exist on type 'Iterable<GPUVertexAttribute>'.ts(7053)
+        return a.attributes[0].shaderLocation - b.attributes[0].shaderLocation;
+      }
+    );
 
-        @group(0) @binding(0) var<uniform> camera: Camera;
-        @group(1) @binding(0) var<uniform> model: mat4x4f;
-
-        struct VertexInput {
-          @location(0) position: vec4f,
-          @location(1) normal: vec3f,
-        }
-
-        struct VertexOutput {
-          @builtin(position) position: vec4f,
-          @location(0) normal: vec3f,
-        };
-
-        @vertex
-        fn vertexMain(input: VertexInput) -> VertexOutput {
-          var output: VertexOutput;
-          output.position = camera.projection * camera.view * model * input.position;
-          output.normal = normalize((model * vec4f(input.normal, 0.0)).xyz);
-          return output;
-        }
-
-        const lightDirection = vec3f(0.25, 0.5, 1);
-        const lightColor = vec3f(1);
-        const materialColor = vec3f(0.8);
-
-        @fragment
-        fn fragmentMain(input: VertexOutput) -> @location(0) vec4f {
-          let n = normalize(input.normal);
-          let l = normalize(lightDirection);
-          let nDotL = max(dot(n, l), 0.0);
-
-          var result = materialColor * nDotL + vec3f(0.1);
-          result = result / (result + vec3f(1.0));
-          result = pow(result, vec3f(1.0 / 2.2));
-
-          return vec4f(result, 1.0);
-        }
-      `,
-    });
-
-    const pipeline = this.device.createRenderPipeline({
-      label: "glTF Pipeline",
-      layout: this.pipelineLayout,
-      vertex: {
-        module,
-        entryPoint: "vertexMain",
-        buffers: bufferLayout.values(),
-      },
-      fragment: {
-        module,
-        entryPoint: "fragmentMain",
-        targets: [{ format: navigator.gpu.getPreferredCanvasFormat() }],
-      },
-      primitive: {
-        frontFace: "cw",
-        cullMode: "none",
-        topology: "triangle-list",
-      },
-      depthStencil: {
-        depthWriteEnabled: true,
-        depthCompare: "less",
-        format: "depth24plus",
-      },
-      multisample: {
-        count: SAMPLE_COUNT,
-      },
-    });
-
-    invariant("indices" in primitive, "Primitive must have indices.");
+    const sortedGpuBuffers = [];
+    for (const buffer of sortedBufferLayout) {
+      const gpuBuffer = gpuBuffers.get(buffer);
+      invariant(gpuBuffer, "Buffer not found.");
+      sortedGpuBuffers.push(gpuBuffer);
+    }
 
     const accessor = gltf.accessors[primitive.indices];
     const bufferView = gltf.bufferViews[accessor.bufferView];
@@ -350,9 +387,11 @@ class GLTFRenderer {
     new Uint8Array(indexBuffer.getMappedRange()).set(view);
     indexBuffer.unmap();
 
+    invariant("indices" in primitive, "Primitive must have indices.");
+
     this.primitiveGpuData.set(primitive, {
-      pipeline,
-      buffers: [...gpuBuffers.values()],
+      pipeline: this.getPipelineForPrimitive(sortedBufferLayout),
+      buffers: sortedGpuBuffers,
       indexBuffer: indexBuffer,
       indexOffset: accessor.byteOffset ?? 0,
       indexType: gpuIndexFormatForComponentType(accessor.componentType),
