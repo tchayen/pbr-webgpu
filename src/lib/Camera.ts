@@ -17,7 +17,7 @@ export class Camera {
     public pitch: number,
     public yaw: number,
     canvas?: HTMLCanvasElement,
-    distance?: number
+    distance?: number,
   ) {
     (canvas ?? window).addEventListener("mousedown", this.handleMouseDown);
     (canvas ?? window).addEventListener("mousemove", this.handleMouseMove);
@@ -66,7 +66,7 @@ export class Camera {
     return new Vec3(
       Math.cos(this.pitch) * Math.cos(this.yaw),
       Math.sin(this.pitch),
-      Math.cos(this.pitch) * Math.sin(this.yaw)
+      Math.cos(this.pitch) * Math.sin(this.yaw),
     )
       .scale(this.distance)
       .add(this.target);

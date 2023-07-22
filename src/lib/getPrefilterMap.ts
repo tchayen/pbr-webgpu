@@ -12,7 +12,7 @@ export function getPrefilterMap(
   device: GPUDevice,
   cubemapTexture: GPUTexture,
   size: number,
-  levels: number
+  levels: number,
 ) {
   const prefilterTexture = device.createTexture({
     label: "prefilter map",
@@ -125,7 +125,7 @@ fn main(@location(0) worldPosition: vec4f) -> @location(0) vec4f {
   const verticesBuffer = createBuffer(
     device,
     cubeVertexArray,
-    GPUBufferUsage.VERTEX
+    GPUBufferUsage.VERTEX,
   );
 
   const sampler = device.createSampler({
@@ -244,7 +244,7 @@ fn main(@location(0) worldPosition: vec4f) -> @location(0) vec4f {
         0,
         // Zeroes are for padding.
         new Float32Array([...modelViewProjectionMatrix, roughness, 0, 0, 0])
-          .buffer
+          .buffer,
       );
 
       passEncoder.setPipeline(pipeline);

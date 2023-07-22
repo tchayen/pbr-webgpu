@@ -102,7 +102,7 @@ export class Mat4 {
     bottom: number,
     top: number,
     near: number,
-    far: number
+    far: number,
   ): Mat4 {
     // prettier-ignore
     return new Mat4([
@@ -120,7 +120,7 @@ export class Mat4 {
     fov: number,
     aspect: number,
     near: number,
-    far: number
+    far: number,
   ): Mat4 {
     const f = 1.0 / Math.tan(fov / 2);
     const nf = 1.0 / (near - far);
@@ -198,7 +198,7 @@ export class Mat4 {
       this.data[12] * vec.x +
         this.data[13] * vec.y +
         this.data[14] * vec.z +
-        this.data[15] * vec.w
+        this.data[15] * vec.w,
     );
   }
 

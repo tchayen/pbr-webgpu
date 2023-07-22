@@ -18,6 +18,6 @@ function renameKeys(name, colors) {
   return Object.fromEntries(
     Object.entries(colors).map(([key, value]) => {
       return [`${name}dark${key.replace(name, "")}`, value];
-    })
+    }),
   );
 }

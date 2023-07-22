@@ -93,7 +93,7 @@ export class Renderer {
   async init(
     canvas: HTMLCanvasElement,
     environment: string,
-    toneMapping: "reinhard" | "uncharted2" | "aces" | "lottes"
+    toneMapping: "reinhard" | "uncharted2" | "aces" | "lottes",
   ) {
     if (!["not-created", "destroyed"].includes(this.state)) {
       console.log("Already created. Skipping initialization.");
@@ -124,7 +124,7 @@ export class Renderer {
     }
 
     const sphere = await fetch("/assets/sphere.obj").then((response) =>
-      response.text()
+      response.text(),
     );
 
     this.obj = parseObjFile(sphere);
@@ -165,7 +165,7 @@ export class Renderer {
           normal.y,
           normal.z,
           uv.x,
-          uv.y
+          uv.y,
         );
       }
     }
@@ -173,31 +173,31 @@ export class Renderer {
     this.cubemapVerticesBuffer = createBuffer(
       this.device,
       cubeVertexArray,
-      GPUBufferUsage.VERTEX
+      GPUBufferUsage.VERTEX,
     );
 
     this.cubemapTexture = await renderToCubemap(
       this.device,
       environment,
-      CUBEMAP_SIZE
+      CUBEMAP_SIZE,
     );
     this.irradianceMap = getIrradianceMap(
       this.device,
       this.cubemapTexture,
-      IRRADIANCE_MAP_SIZE
+      IRRADIANCE_MAP_SIZE,
     );
     this.prefilterMap = getPrefilterMap(
       this.device,
       this.cubemapTexture,
       PREFILTER_MAP_SIZE,
-      ROUGHNESS_LEVELS
+      ROUGHNESS_LEVELS,
     );
     this.brdfLookup = getBRDFConvolutionLUT(this.device, 512);
 
     this.positionBuffer = createBuffer(
       this.device,
       new Float32Array(buffer),
-      GPUBufferUsage.VERTEX
+      GPUBufferUsage.VERTEX,
     );
 
     const pbrVertexShader = /* wgsl */ `
@@ -541,8 +541,8 @@ fn main(
         this.balls.push(
           new Vec2(
             x * distance - (distance * (COUNT_X - 1)) / 2,
-            y * distance - distance / 2
-          )
+            y * distance - distance / 2,
+          ),
         );
       }
     }
@@ -635,7 +635,7 @@ fn main(
       console.log(
         `Resizing canvas ${this.canvas.clientWidth * window.devicePixelRatio}x${
           this.canvas.clientHeight * window.devicePixelRatio
-        }`
+        }`,
       );
       this.canvas.width = this.canvas.clientWidth * window.devicePixelRatio;
       this.canvas.height = this.canvas.clientHeight * window.devicePixelRatio;
@@ -697,7 +697,7 @@ fn main(
       toRadians(45),
       this.canvas.width / this.canvas.height,
       0.1,
-      100
+      100,
     );
 
     const cameraPosition = this.camera.getPosition();
@@ -709,7 +709,7 @@ fn main(
           return Mat4.translate(ball.x, ball.y, 0);
         })
         .map((matrix) => matrix.data)
-        .flat()
+        .flat(),
     );
     const viewProjectionContent = new Float32Array([
       ...view.multiply(projection).data,
@@ -726,21 +726,21 @@ fn main(
             ...vec3ToArray(light.position),
             ...vec3ToArray(light.color),
           ])
-          .flat()
-      ).buffer
+          .flat(),
+      ).buffer,
     );
     this.device.queue.writeBuffer(this.matrixBuffer, 0, matrixContent.buffer);
     this.device.queue.writeBuffer(
       this.viewProjectionBuffer,
       0,
-      viewProjectionContent.buffer
+      viewProjectionContent.buffer,
     );
 
     // Render skybox
     this.device.queue.writeBuffer(
       this.cubemapUniformBuffer,
       0,
-      new Float32Array([...view.data, ...projection.data].flat()).buffer
+      new Float32Array([...view.data, ...projection.data].flat()).buffer,
     );
 
     passEncoder.setPipeline(this.skyboxPipeline);

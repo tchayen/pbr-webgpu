@@ -104,7 +104,7 @@ export class GLTFRenderer {
     private gltf: GLTFDescriptor,
     private canvas: HTMLCanvasElement,
     private context: GPUCanvasContext,
-    textures: GPUTexture[]
+    textures: GPUTexture[],
   ) {
     this.render = this.render.bind(this);
 
@@ -116,14 +116,14 @@ export class GLTFRenderer {
       0,
       0,
       0,
-      0
+      0,
     );
     this.defaultNormalTexture = createSolidColorTexture(
       this.device,
       0.5,
       0.5,
       1,
-      1
+      1,
     );
     this.defaultSampler = createDefaultSampler(this.device);
 
@@ -225,7 +225,7 @@ export class GLTFRenderer {
     });
 
     primitiveInstances.arrayBuffer = new Float32Array(
-      instanceBuffer.getMappedRange()
+      instanceBuffer.getMappedRange(),
     );
 
     const materialGpuData = new Map<
@@ -256,7 +256,7 @@ export class GLTFRenderer {
           primitive,
           gltf,
           primitiveInstances,
-          materialGpuData
+          materialGpuData,
         );
       }
     }
@@ -468,7 +468,7 @@ export class GLTFRenderer {
 
   setupMaterial(
     material: GLTFMaterialDescriptor,
-    materialGpuData: Map<GLTFMaterialDescriptor, { bindGroup: GPUBindGroup }>
+    materialGpuData: Map<GLTFMaterialDescriptor, { bindGroup: GPUBindGroup }>,
   ) {
     const valueCount = 5;
     const materialUniformBuffer = this.device.createBuffer({
@@ -478,11 +478,11 @@ export class GLTFRenderer {
       mappedAtCreation: true,
     });
     const materialBufferArray = new Float32Array(
-      materialUniformBuffer.getMappedRange()
+      materialUniformBuffer.getMappedRange(),
     );
 
     materialBufferArray.set(
-      material.pbrMetallicRoughness?.baseColorFactor || [1, 1, 1, 1]
+      material.pbrMetallicRoughness?.baseColorFactor || [1, 1, 1, 1],
     );
     materialBufferArray[4] = material.alphaCutoff || 0.5;
     materialUniformBuffer.unmap();
@@ -525,7 +525,7 @@ export class GLTFRenderer {
 
   setupPrimitiveInstances(
     primitive: GLTFPrimitiveDescriptor,
-    primitiveInstances: PrimitiveInstances
+    primitiveInstances: PrimitiveInstances,
   ) {
     const instances = primitiveInstances.matrices.get(primitive);
     invariant(instances, "Primitive instances not found.");
@@ -548,7 +548,7 @@ export class GLTFRenderer {
     primitive: GLTFPrimitiveDescriptor,
     gltf: GLTFDescriptor,
     primitiveInstances: PrimitiveInstances,
-    materialGpuData: Map<GLTFMaterialDescriptor, { bindGroup: GPUBindGroup }>
+    materialGpuData: Map<GLTFMaterialDescriptor, { bindGroup: GPUBindGroup }>,
   ) {
     const bufferLayout = new Map<string | number, GPUVertexBufferLayout>();
     const gpuBuffers = new Map<
@@ -556,7 +556,7 @@ export class GLTFRenderer {
       { buffer: GPUBuffer; offset: number }
     >();
     for (const [attributeName, accessorIndex] of Object.entries(
-      primitive.attributes
+      primitive.attributes,
     )) {
       const accessor = gltf.accessors[accessorIndex];
       const bufferView = gltf.bufferViews[accessor.bufferView];
@@ -585,7 +585,7 @@ export class GLTFRenderer {
         };
         bufferLayout.set(
           separate ? attributeName : accessor.bufferView,
-          buffer
+          buffer,
         );
 
         const gpuBuffer = this.device.createBuffer({
@@ -597,8 +597,8 @@ export class GLTFRenderer {
         new Uint8Array(gpuBuffer.getMappedRange()).set(
           gltf.buffers[0].subarray(
             bufferView.byteOffset,
-            bufferView.byteOffset + bufferView.byteLength
-          )
+            bufferView.byteOffset + bufferView.byteLength,
+          ),
         );
         gpuBuffer.unmap();
 
@@ -633,7 +633,7 @@ export class GLTFRenderer {
       buffer.attributes = buffer.attributes.sort(
         (a: GPUVertexAttribute, b: GPUVertexAttribute) => {
           return a.shaderLocation - b.shaderLocation;
-        }
+        },
       );
     }
 
@@ -641,7 +641,7 @@ export class GLTFRenderer {
       (a: GPUVertexBufferLayout, b: GPUVertexBufferLayout) => {
         // @ts-ignore Property '0' does not exist on type 'Iterable<GPUVertexAttribute>'.ts(7053)
         return a.attributes[0].shaderLocation - b.attributes[0].shaderLocation;
-      }
+      },
     );
 
     const sortedGpuBuffers = [];
@@ -656,7 +656,7 @@ export class GLTFRenderer {
 
     const view = gltf.buffers[0].subarray(
       bufferView.byteOffset,
-      bufferView.byteOffset + bufferView.byteLength
+      bufferView.byteOffset + bufferView.byteLength,
     );
 
     const indexBuffer = this.device.createBuffer({
@@ -671,7 +671,7 @@ export class GLTFRenderer {
     invariant("indices" in primitive, "Primitive must have indices.");
     invariant(
       primitive.material !== undefined,
-      "Primitive must have material."
+      "Primitive must have material.",
     );
     const material = (gltf.materials ?? [])[primitive.material];
     const gpuMaterial = materialGpuData.get(material);
@@ -714,7 +714,7 @@ export class GLTFRenderer {
         ? Mat4.translate(
             node.translation[0],
             node.translation[1],
-            node.translation[2]
+            node.translation[2],
           )
         : Mat4.identity();
 
@@ -724,8 +724,8 @@ export class GLTFRenderer {
               node.rotation[0],
               node.rotation[1],
               node.rotation[2],
-              node.rotation[3]
-            )
+              node.rotation[3],
+            ),
           )
         : Mat4.identity();
 
@@ -802,7 +802,7 @@ export class GLTFRenderer {
       Math.PI / 2,
       this.canvas.width / this.canvas.height,
       0.1,
-      1000
+      1000,
     );
     const view = this.camera.getView().invert();
     const cameraUniforms = new Float32Array([
@@ -828,18 +828,18 @@ export class GLTFRenderer {
 
         for (const gpuPrimitive of primitives) {
           for (const [bufferIndex, gpuBuffer] of Object.entries(
-            gpuPrimitive.buffers
+            gpuPrimitive.buffers,
           )) {
             passEncoder.setVertexBuffer(
               Number(bufferIndex),
               gpuBuffer.buffer,
-              gpuBuffer.offset
+              gpuBuffer.offset,
             );
           }
           passEncoder.setIndexBuffer(
             gpuPrimitive.indexBuffer,
             gpuPrimitive.indexType,
-            gpuPrimitive.indexOffset
+            gpuPrimitive.indexOffset,
           );
 
           passEncoder.drawIndexed(
@@ -847,7 +847,7 @@ export class GLTFRenderer {
             gpuPrimitive.instances.count,
             0,
             0,
-            gpuPrimitive.instances.first
+            gpuPrimitive.instances.first,
           );
         }
       }

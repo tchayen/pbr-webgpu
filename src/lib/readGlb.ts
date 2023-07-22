@@ -14,7 +14,7 @@ export function readGlb(data: ArrayBuffer): GLTFDescriptor {
   const magic = readUint32LE();
   invariant(
     magic === 0x46546c67,
-    `Magic must be glTF (expected: 0x46546c67, found: ${printHex(magic)}).`
+    `Magic must be glTF (expected: 0x46546c67, found: ${printHex(magic)}).`,
   );
   const version = readUint32LE();
   invariant(version === 2, `Version must be 2 (found: ${version}).`);
@@ -25,8 +25,8 @@ export function readGlb(data: ArrayBuffer): GLTFDescriptor {
   invariant(
     jsonType === 0x4e4f534a,
     `JSON type must be JSON (expected: 0x4e4f534a, found: ${printHex(
-      jsonType
-    )}).`
+      jsonType,
+    )}).`,
   );
 
   const jsonData = new Uint8Array(data, pointer, jsonLength);
@@ -38,8 +38,8 @@ export function readGlb(data: ArrayBuffer): GLTFDescriptor {
   invariant(
     binaryType === 0x004e4942,
     `Binary type must be BIN (expected: 0x004e4942, found: ${printHex(
-      binaryType
-    )}).`
+      binaryType,
+    )}).`,
   );
 
   const binaryData = new Uint8Array(data, pointer, binaryLength);
@@ -70,7 +70,7 @@ function isGltfDescriptor(obj: any): obj is GLTFDescriptor {
         typeof scene === "object" &&
         scene !== null &&
         Array.isArray(scene.nodes) &&
-        scene.nodes.every((node: any) => typeof node === "number")
+        scene.nodes.every((node: any) => typeof node === "number"),
     ) &&
     Array.isArray(obj.nodes) &&
     obj.nodes.every(
@@ -84,7 +84,7 @@ function isGltfDescriptor(obj: any): obj is GLTFDescriptor {
         (typeof node.scale === "undefined" ||
           (Array.isArray(node.scale) && node.scale.length === 3)) &&
         (typeof node.translation === "undefined" ||
-          (Array.isArray(node.translation) && node.translation.length === 3))
+          (Array.isArray(node.translation) && node.translation.length === 3)),
     ) &&
     Array.isArray(obj.meshes) &&
     obj.meshes.every(
@@ -100,8 +100,8 @@ function isGltfDescriptor(obj: any): obj is GLTFDescriptor {
             typeof primitive.attributes === "object" &&
             typeof primitive.attributes.POSITION === "number" &&
             typeof primitive.attributes.NORMAL === "number" &&
-            typeof primitive.attributes.TEXCOORD_0 === "number"
-        )
+            typeof primitive.attributes.TEXCOORD_0 === "number",
+        ),
     ) &&
     Array.isArray(obj.accessors) &&
     obj.accessors.every(
@@ -119,7 +119,7 @@ function isGltfDescriptor(obj: any): obj is GLTFDescriptor {
         (typeof accessor.max === "undefined" ||
           (Array.isArray(accessor.max) &&
             accessor.max.length === 3 &&
-            accessor.max.every((n: number) => typeof n === "number")))
+            accessor.max.every((n: number) => typeof n === "number"))),
     ) &&
     Array.isArray(obj.bufferViews) &&
     obj.bufferViews.every(
@@ -129,14 +129,14 @@ function isGltfDescriptor(obj: any): obj is GLTFDescriptor {
         typeof bufferView.buffer === "number" &&
         typeof bufferView.byteLength === "number" &&
         typeof bufferView.byteOffset === "number" &&
-        typeof bufferView.target === "number"
+        typeof bufferView.target === "number",
     ) &&
     Array.isArray(obj.buffers) &&
     obj.buffers.every(
       (buffer: any) =>
         typeof buffer === "object" &&
         buffer !== null &&
-        typeof buffer.byteLength === "number"
+        typeof buffer.byteLength === "number",
     )
   );
 }

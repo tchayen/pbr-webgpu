@@ -9,7 +9,7 @@ import { createBuffer } from "./createBuffer";
 export function getIrradianceMap(
   device: GPUDevice,
   cubemapTexture: GPUTexture,
-  size: number
+  size: number,
 ) {
   const irradianceTexture = device.createTexture({
     label: "irradiance map",
@@ -72,7 +72,7 @@ export function getIrradianceMap(
   const verticesBuffer = createBuffer(
     device,
     cubeVertexArray,
-    GPUBufferUsage.VERTEX
+    GPUBufferUsage.VERTEX,
   );
 
   const sampler = device.createSampler({
@@ -175,7 +175,7 @@ export function getIrradianceMap(
     device.queue.writeBuffer(
       uniformBuffer,
       0,
-      new Float32Array(modelViewProjectionMatrix).buffer
+      new Float32Array(modelViewProjectionMatrix).buffer,
     );
 
     passEncoder.setPipeline(pipeline);

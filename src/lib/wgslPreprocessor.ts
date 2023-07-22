@@ -22,7 +22,7 @@ export function wgsl(strings: TemplateStringsArray, ...values: any[]) {
         case "if":
           if (match.index + match[0].length != string.length) {
             throw new Error(
-              "#if must be immediately followed by a template expression (ie: ${value})"
+              "#if must be immediately followed by a template expression (ie: ${value})",
             );
           }
           valueConsumed = true;
@@ -33,7 +33,7 @@ export function wgsl(strings: TemplateStringsArray, ...values: any[]) {
         case "elif":
           if (match.index + match[0].length != string.length) {
             throw new Error(
-              "#elif must be immediately followed by a template expression (ie: ${value})"
+              "#elif must be immediately followed by a template expression (ie: ${value})",
             );
           } else if (!state.elseIsValid) {
             throw new Error("#elif not preceeded by an #if or #elif");

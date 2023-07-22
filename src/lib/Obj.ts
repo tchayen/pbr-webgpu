@@ -29,13 +29,13 @@ export function parseObjFile(objFileContents: string): ObjData {
     const t = line.trim().split(/\s+/);
     if (t[0] === "v") {
       vertices.push(
-        new Vec3(parseFloat(t[1]), parseFloat(t[2]), parseFloat(t[3]))
+        new Vec3(parseFloat(t[1]), parseFloat(t[2]), parseFloat(t[3])),
       );
     } else if (t[0] === "vt") {
       uvs.push(new Vec2(parseFloat(t[1]), parseFloat(t[2])));
     } else if (t[0] === "vn") {
       normals.push(
-        new Vec3(parseFloat(t[1]), parseFloat(t[2]), parseFloat(t[3]))
+        new Vec3(parseFloat(t[1]), parseFloat(t[2]), parseFloat(t[3])),
       );
     } else if (t[0] === "f") {
       const face: FaceVertex[] = [];

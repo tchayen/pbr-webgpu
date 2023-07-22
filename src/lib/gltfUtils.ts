@@ -23,7 +23,7 @@ function numerOfComponentsForType(type: string) {
 }
 
 export function gpuFormatForAccessor(
-  accessor: GLTFAccessorDescriptor
+  accessor: GLTFAccessorDescriptor,
 ): GPUVertexFormat {
   const normalized = accessor.normalized ? "norm" : "int";
   const count = numerOfComponentsForType(accessor.type);
@@ -48,7 +48,7 @@ export function gpuFormatForAccessor(
 }
 
 export function gpuIndexFormatForComponentType(
-  componentType: ComponentType
+  componentType: ComponentType,
 ): GPUIndexFormat {
   switch (componentType) {
     case ComponentType.UNSIGNED_SHORT:
@@ -98,7 +98,7 @@ export function gpuAddressModeForWrappingMode(mode?: number) {
 
 export function createSampler(
   device: GPUDevice,
-  sampler: GLTFSamplerDescriptor
+  sampler: GLTFSamplerDescriptor,
 ) {
   const descriptor: GPUSamplerDescriptor = {
     addressModeU: gpuAddressModeForWrappingMode(sampler.wrapS),
@@ -147,7 +147,7 @@ export async function createTextureFromImage(
   device: GPUDevice,
   gltf: GLTFDescriptor,
   image: GLTFImageDescriptor,
-  mipmapGenerator: MipmapGenerator
+  mipmapGenerator: MipmapGenerator,
 ) {
   const bufferView = gltf.bufferViews[image.bufferView];
   const buffer = gltf.buffers[bufferView.buffer];
@@ -155,10 +155,10 @@ export async function createTextureFromImage(
     [
       buffer.subarray(
         bufferView.byteOffset,
-        bufferView.byteOffset + bufferView.byteLength
+        bufferView.byteOffset + bufferView.byteLength,
       ),
     ],
-    { type: image.mimeType }
+    { type: image.mimeType },
   );
   const imageBitmap = await createImageBitmap(blob);
 
@@ -181,7 +181,7 @@ export async function createTextureFromImage(
   device.queue.copyExternalImageToTexture(
     { source: imageBitmap },
     { texture },
-    size
+    size,
   );
   mipmapGenerator.generateMipmaps(texture);
 
@@ -193,7 +193,7 @@ export function createSolidColorTexture(
   r: number,
   g: number,
   b: number,
-  a: number
+  a: number,
 ) {
   const data = new Uint8Array([r * 255, g * 255, b * 255, a * 255]);
   const size = { width: 1, height: 1 };

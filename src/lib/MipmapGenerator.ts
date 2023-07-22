@@ -75,7 +75,7 @@ export class MipmapGenerator {
   generateMipmaps(texture: GPUTexture) {
     if (texture.dimension == "3d" || texture.dimension == "1d") {
       throw new Error(
-        "Generating mipmaps for non-2d textures is currently unsupported!"
+        "Generating mipmaps for non-2d textures is currently unsupported!",
       );
     }
 
