@@ -26,11 +26,12 @@ export type GLTFMaterialDescriptor = {
     metallicRoughnessTexture?: {
       index: number;
     };
-    normalTexture?: {
-      index: number;
-      strength?: number;
-    };
   };
+  normalTexture?: {
+    index: number;
+    strength?: number;
+  };
+  alphaCutoff?: number;
 };
 
 export type GLTFAccessorDescriptor = {
@@ -57,6 +58,11 @@ export type GLTFImageDescriptor = {
   name: string;
 };
 
+export type GLTFTextureDescriptor = {
+  sampler: number;
+  source: number;
+};
+
 export type GLTFPrimitiveDescriptor = {
   attributes: {
     POSITION: number;
@@ -64,6 +70,7 @@ export type GLTFPrimitiveDescriptor = {
     TEXCOORD_0: number;
   };
   indices: number;
+  material?: number;
 };
 
 export type GLTFNodeDescriptor = {
@@ -89,6 +96,10 @@ export type GLTFDescriptor = {
   meshes: {
     primitives: GLTFPrimitiveDescriptor[];
   }[];
+  images?: GLTFImageDescriptor[];
+  textures?: GLTFTextureDescriptor[];
+  samplers?: GLTFSamplerDescriptor[];
+  materials?: GLTFMaterialDescriptor[];
   accessors: GLTFAccessorDescriptor[];
   bufferViews: GLTFBufferViewDescriptor[];
   buffers: Uint8Array[];

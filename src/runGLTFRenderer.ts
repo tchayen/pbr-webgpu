@@ -1,9 +1,10 @@
 import { readGlb } from "./lib/readGlb";
 import { invariant } from "./lib/invariant";
 import { GLTFRenderer } from "./GLTFRenderer";
+import { createTextureFromImage } from "./lib/gltfUtils";
 
 export async function setupRendering() {
-  const glb = await fetch("/assets/scene3.glb").then((response) =>
+  const glb = await fetch("/assets/scene4.glb").then((response) =>
     response.arrayBuffer()
   );
 
@@ -34,7 +35,13 @@ export async function setupRendering() {
     alphaMode: "opaque",
   });
 
-  const renderer = new GLTFRenderer(device, gltf, canvas, context);
+  const textures = await Promise.all(
+    gltf.images?.map((image) => {
+      return createTextureFromImage(device, gltf, image);
+    }) ?? []
+  );
+
+  const renderer = new GLTFRenderer(device, gltf, canvas, context, textures);
 
   renderer.render();
 }

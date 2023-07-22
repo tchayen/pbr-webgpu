@@ -13,16 +13,25 @@ import {
   packedArrayStrideForAccessor,
   gpuFormatForAccessor,
   gpuIndexFormatForComponentType,
+  createSolidColorTexture,
+  createDefaultSampler,
+  createSampler,
 } from "./lib/gltfUtils";
+import { wgsl } from "./lib/wgslPreprocessor";
 
 const ShaderLocations: Record<string, number> = {
   POSITION: 0,
   NORMAL: 1,
+  TEXCOORD_0: 2,
 };
 
 const SAMPLE_COUNT = 4;
 
 type TODO = any;
+
+type Material = {
+  bindGroup: GPUBindGroup;
+};
 
 type GpuPrimitive = {
   pipeline: GPURenderPipeline;
@@ -35,6 +44,7 @@ type GpuPrimitive = {
   indexOffset: number;
   indexType: GPUIndexFormat;
   drawCount: number;
+  material: Material;
 };
 
 type NodeGpuData = {
@@ -58,14 +68,16 @@ export class GLTFRenderer {
   >();
 
   primitiveGpuData = new Map<GLTFPrimitiveDescriptor, GpuPrimitive>();
-  materialGpuData = new Map<GLTFMaterialDescriptor, GPUBindGroup>();
   nodeGpuData = new Map<GLTFNodeDescriptor, NodeGpuData>();
+  textures: { texture: GPUTexture; sampler: GPUSampler }[] = [];
 
   cameraBindGroupLayout: GPUBindGroupLayout;
   instanceBindGroupLayout: GPUBindGroupLayout;
   pipelineLayout: GPUPipelineLayout;
   cameraUniformBuffer: GPUBuffer;
   cameraBindGroup: GPUBindGroup;
+
+  shaderModules: Map<string, GPUShaderModule> = new Map();
 
   camera: Camera;
   depthTexture: GPUTexture;
@@ -80,15 +92,39 @@ export class GLTFRenderer {
   nodeTransforms = new Map<GLTFNodeDescriptor, Mat4>();
   instanceBindGroup: GPUBindGroup;
 
+  defaultSampler: GPUSampler;
+  opaqueWhiteTexture: GPUTexture;
+  transparentBlackTexture: GPUTexture;
+  defaultNormalTexture: GPUTexture;
+  materialBindGroupLayout: GPUBindGroupLayout;
+
   constructor(
     private device: GPUDevice,
     private gltf: GLTFDescriptor,
     private canvas: HTMLCanvasElement,
-    private context: GPUCanvasContext
+    private context: GPUCanvasContext,
+    textures: GPUTexture[]
   ) {
     this.render = this.render.bind(this);
 
     this.camera = new Camera(0, 0);
+
+    this.opaqueWhiteTexture = createSolidColorTexture(this.device, 1, 1, 1, 1);
+    this.transparentBlackTexture = createSolidColorTexture(
+      this.device,
+      0,
+      0,
+      0,
+      0
+    );
+    this.defaultNormalTexture = createSolidColorTexture(
+      this.device,
+      0.5,
+      0.5,
+      1,
+      1
+    );
+    this.defaultSampler = createDefaultSampler(this.device);
 
     this.instanceBindGroupLayout = this.device.createBindGroupLayout({
       entries: [
@@ -111,11 +147,33 @@ export class GLTFRenderer {
       ],
     });
 
+    this.materialBindGroupLayout = this.device.createBindGroupLayout({
+      label: `glTF Material BindGroupLayout`,
+      entries: [
+        {
+          binding: 0, // Material uniforms
+          visibility: GPUShaderStage.FRAGMENT,
+          buffer: {},
+        },
+        {
+          binding: 1, // Texture sampler
+          visibility: GPUShaderStage.FRAGMENT,
+          sampler: {},
+        },
+        {
+          binding: 2, // BaseColor texture
+          visibility: GPUShaderStage.FRAGMENT,
+          texture: {},
+        },
+      ],
+    });
+
     this.pipelineLayout = this.device.createPipelineLayout({
       label: "glTF Pipeline Layout",
       bindGroupLayouts: [
         this.cameraBindGroupLayout,
         this.instanceBindGroupLayout,
+        this.materialBindGroupLayout,
       ],
     });
 
@@ -166,9 +224,35 @@ export class GLTFRenderer {
       instanceBuffer.getMappedRange()
     );
 
+    const materialGpuData = new Map<
+      GLTFMaterialDescriptor,
+      { bindGroup: GPUBindGroup }
+    >();
+
+    for (const texture of gltf.textures ?? []) {
+      const sampler =
+        createSampler(this.device, gltf.samplers[texture.sampler]) ??
+        this.defaultSampler;
+      const image = textures[texture.source];
+
+      this.textures.push({
+        texture: image,
+        sampler,
+      });
+    }
+
+    for (const material of gltf.materials ?? []) {
+      this.setupMaterial(material, materialGpuData);
+    }
+
     for (const mesh of gltf.meshes) {
       for (const primitive of mesh.primitives) {
-        this.setupPrimitive(primitive, gltf, primitiveInstances);
+        this.setupPrimitive(
+          primitive,
+          gltf,
+          primitiveInstances,
+          materialGpuData
+        );
       }
     }
 
@@ -234,7 +318,10 @@ export class GLTFRenderer {
       };
     }
 
-    const module = this.getShaderModule();
+    const module = this.getShaderModule({
+      // ?
+    });
+
     const pipeline = this.device.createRenderPipeline({
       label: "glTF Pipeline",
       layout: this.pipelineLayout,
@@ -255,7 +342,7 @@ export class GLTFRenderer {
       },
       primitive: {
         frontFace: "cw",
-        cullMode: args.doubleSided ? "none" : "back",
+        cullMode: args.doubleSided ? "none" : "front",
         topology: "triangle-list",
       },
       depthStencil: {
@@ -278,9 +365,17 @@ export class GLTFRenderer {
     return gpuPipeline;
   }
 
-  getShaderModule() {
-    return this.device.createShaderModule({
-      code: /* wgsl */ `
+  getShaderModule(args: TODO) {
+    const key = JSON.stringify(args);
+
+    let existingModule = this.shaderModules.get(key);
+
+    if (existingModule) {
+      return existingModule;
+    }
+
+    const shaderModule = this.device.createShaderModule({
+      code: wgsl/* wgsl */ `
         struct Camera {
           projection: mat4x4f,
           view: mat4x4f,
@@ -291,14 +386,27 @@ export class GLTFRenderer {
         @group(0) @binding(0) var<uniform> camera: Camera;
         @group(1) @binding(0) var<storage> models: array<mat4x4f>;
 
+        struct Material {
+          baseColorFactor: vec4f,
+          alphaCutoff: f32,
+        };
+
+        @group(2) @binding(0) var<uniform> material: Material;
+        @group(2) @binding(1) var materialSampler: sampler;
+        @group(2) @binding(2) var baseColorTexture: texture_2d<f32>;
+
         struct VertexInput {
-          @location(0) position: vec4f,
-          @location(1) normal: vec3f,
+          @location(${ShaderLocations.POSITION}) position: vec4f,
+          @location(${ShaderLocations.NORMAL}) normal: vec3f,
+          #if ${args.hasTexcoord}
+            @location(${ShaderLocations.TEXCOORD_0}) uv: vec2f,
+          #endif
         }
 
         struct VertexOutput {
           @builtin(position) position: vec4f,
           @location(0) normal: vec3f,
+          @location(1) uv: vec2f,
         };
 
         @vertex
@@ -306,26 +414,104 @@ export class GLTFRenderer {
           var output: VertexOutput;
           output.position = camera.projection * camera.view * models[instance] * input.position;
           output.normal = normalize((models[instance] * vec4f(input.normal, 0.0)).xyz);
+          #if ${args.uv}
+            output.uv = input.uv;
+          #else
+            output.uv = vec2f(0);
+          #endif
           return output;
         }
 
         const lightDirection = vec3f(0.25, 0.5, 1);
         const lightColor = vec3f(1);
-        const materialColor = vec3f(0.8);
+        const ambientColor = vec3f(0.3);
 
         @fragment
         fn fragmentMain(input: VertexOutput) -> @location(0) vec4f {
+          let baseColor = textureSample(
+            baseColorTexture,
+            materialSampler,
+            input.uv
+          ) * material.baseColorFactor;
+
+          #if ${args.useAlphaCutoff}
+            // If the alpha mode is MASK discard any fragments below the alpha cutoff.
+            if (baseColor.a < material.alphaCutoff) {
+              discard;
+            }
+          #endif
+
           let n = normalize(input.normal);
           let l = normalize(lightDirection);
           let nDotL = max(dot(n, l), 0.0);
 
-          var result = materialColor * nDotL + vec3f(0.1);
+          var result = (baseColor.rgb * ambientColor) + (baseColor.rgb * nDotL);
           result = result / (result + vec3f(1.0));
           result = pow(result, vec3f(1.0 / 2.2));
 
-          return vec4f(result, 1.0);
+          return vec4f(result, baseColor.a);
         }
       `,
+    });
+
+    this.shaderModules.set(key, shaderModule);
+    return shaderModule;
+  }
+
+  setupMaterial(
+    material: GLTFMaterialDescriptor,
+    materialGpuData: Map<GLTFMaterialDescriptor, { bindGroup: GPUBindGroup }>
+  ) {
+    const valueCount = 5;
+    const materialUniformBuffer = this.device.createBuffer({
+      size: alignTo(valueCount, 4) * Float32Array.BYTES_PER_ELEMENT,
+      usage: GPUBufferUsage.UNIFORM,
+      mappedAtCreation: true,
+    });
+    const materialBufferArray = new Float32Array(
+      materialUniformBuffer.getMappedRange()
+    );
+
+    materialBufferArray.set(
+      material.pbrMetallicRoughness?.baseColorFactor || [1, 1, 1, 1]
+    );
+    materialBufferArray[4] = material.alphaCutoff || 0.5;
+    materialUniformBuffer.unmap();
+
+    // The baseColorTexture may not be specified either. If not use a plain white texture instead.
+    const index = material.pbrMetallicRoughness?.baseColorTexture?.index;
+    let baseColor = index
+      ? {
+          texture: this.textures[index].texture,
+          sampler: this.textures[index].sampler,
+        }
+      : {
+          texture: this.opaqueWhiteTexture,
+          sampler: this.defaultSampler,
+        };
+
+    const bindGroup = this.device.createBindGroup({
+      label: `glTF Material BindGroup`,
+      layout: this.materialBindGroupLayout,
+      entries: [
+        {
+          binding: 0, // Material uniforms
+          resource: { buffer: materialUniformBuffer },
+        },
+        {
+          binding: 1, // Sampler
+          resource: baseColor.sampler,
+        },
+        {
+          binding: 2, // BaseColor
+          resource: baseColor.texture.createView(),
+        },
+      ],
+    });
+
+    // Associate the bind group with this material.
+    materialGpuData.set(material, {
+      bindGroup,
     });
   }
 
@@ -352,7 +538,8 @@ export class GLTFRenderer {
   setupPrimitive(
     primitive: GLTFPrimitiveDescriptor,
     gltf: GLTFDescriptor,
-    primitiveInstances: PrimitiveInstances
+    primitiveInstances: PrimitiveInstances,
+    materialGpuData: Map<GLTFMaterialDescriptor, { bindGroup: GPUBindGroup }>
   ) {
     const bufferLayout = new Map<string | number, GPUVertexBufferLayout>();
     const gpuBuffers = new Map<
@@ -472,6 +659,10 @@ export class GLTFRenderer {
 
     invariant("indices" in primitive, "Primitive must have indices.");
 
+    const material = gltf.materials[primitive.material];
+    const gpuMaterial = materialGpuData.get(material);
+    invariant(gpuMaterial, "Material not found.");
+
     const pipeline = this.getPipelineForPrimitive({
       buffers: sortedBufferLayout,
       doubleSided: false,
@@ -486,6 +677,7 @@ export class GLTFRenderer {
       indexOffset: accessor.byteOffset ?? 0,
       indexType: gpuIndexFormatForComponentType(accessor.componentType),
       drawCount: accessor.count,
+      material: gpuMaterial,
     };
 
     pipeline.primitives.push(gpuPrimitive);
@@ -618,6 +810,8 @@ export class GLTFRenderer {
           gpuPrimitive.indexType,
           gpuPrimitive.indexOffset
         );
+
+        passEncoder.setBindGroup(2, gpuPrimitive.material.bindGroup);
 
         passEncoder.drawIndexed(
           gpuPrimitive.drawCount,

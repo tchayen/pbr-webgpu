@@ -141,7 +141,7 @@ export function createDefaultSampler(device: GPUDevice) {
   });
 }
 
-export async function createTexture(
+export async function createTextureFromImage(
   device: GPUDevice,
   gltf: GLTFDescriptor,
   image: GLTFImageDescriptor
@@ -149,7 +149,12 @@ export async function createTexture(
   const bufferView = gltf.bufferViews[image.bufferView];
   const buffer = gltf.buffers[bufferView.buffer];
   const blob = new Blob(
-    [new Uint8Array(buffer, bufferView.byteOffset, bufferView.byteLength)],
+    [
+      buffer.subarray(
+        bufferView.byteOffset,
+        bufferView.byteOffset + bufferView.byteLength
+      ),
+    ],
     { type: image.mimeType }
   );
   const imageBitmap = await createImageBitmap(blob);
@@ -159,7 +164,10 @@ export async function createTexture(
   const texture = device.createTexture({
     size,
     format: "rgba8unorm",
-    usage: GPUTextureUsage.TEXTURE_BINDING | GPUTextureUsage.COPY_DST,
+    usage:
+      GPUTextureUsage.TEXTURE_BINDING |
+      GPUTextureUsage.COPY_DST |
+      GPUTextureUsage.RENDER_ATTACHMENT,
   });
 
   device.queue.copyExternalImageToTexture(
@@ -168,5 +176,23 @@ export async function createTexture(
     size
   );
 
+  return texture;
+}
+
+export function createSolidColorTexture(
+  device: GPUDevice,
+  r: number,
+  g: number,
+  b: number,
+  a: number
+) {
+  const data = new Uint8Array([r * 255, g * 255, b * 255, a * 255]);
+  const size = { width: 1, height: 1 };
+  const texture = device.createTexture({
+    size,
+    format: "rgba8unorm",
+    usage: GPUTextureUsage.TEXTURE_BINDING | GPUTextureUsage.COPY_DST,
+  });
+  device.queue.writeTexture({ texture }, data, {}, size);
   return texture;
 }
