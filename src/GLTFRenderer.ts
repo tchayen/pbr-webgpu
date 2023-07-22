@@ -28,8 +28,6 @@ const ShaderLocations: Record<string, number> = {
 
 const SAMPLE_COUNT = 4;
 
-type TODO = any;
-
 type Material = {
   bindGroup: GPUBindGroup;
 };
@@ -299,7 +297,7 @@ export class GLTFRenderer {
   getPipelineForPrimitive(args: {
     buffers: GPUVertexBufferLayout[];
     doubleSided: boolean;
-    alphaMode: TODO;
+    alphaMode: "OPAQUE" | "MASK" | "BLEND";
     shaderParameters: {
       hasUVs: boolean;
       useAlphaCutoff: boolean;
@@ -759,7 +757,6 @@ export class GLTFRenderer {
     }
 
     if (!mesh) {
-      // TODO: why it doesn't exist?
       return;
     }
 
