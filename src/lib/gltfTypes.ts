@@ -31,6 +31,7 @@ export type GLTFMaterialDescriptor = {
     index: number;
     strength?: number;
   };
+  alphaMode?: "OPAQUE" | "MASK" | "BLEND";
   alphaCutoff?: number;
 };
 

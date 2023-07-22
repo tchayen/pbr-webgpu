@@ -231,7 +231,7 @@ export class GLTFRenderer {
 
     for (const texture of gltf.textures ?? []) {
       const sampler =
-        createSampler(this.device, gltf.samplers[texture.sampler]) ??
+        createSampler(this.device, (gltf.samplers ?? [])[texture.sampler]) ??
         this.defaultSampler;
       const image = textures[texture.source];
 
@@ -295,6 +295,10 @@ export class GLTFRenderer {
     buffers: GPUVertexBufferLayout[];
     doubleSided: boolean;
     alphaMode: TODO;
+    shaderParameters: {
+      hasUVs: boolean;
+      useAlphaCutoff: boolean;
+    };
   }) {
     const key = JSON.stringify(args);
     let existingPipeline = this.pipelineGpuData.get(key);
@@ -318,9 +322,7 @@ export class GLTFRenderer {
       };
     }
 
-    const module = this.getShaderModule({
-      // ?
-    });
+    const module = this.getShaderModule(args.shaderParameters);
 
     const pipeline = this.device.createRenderPipeline({
       label: "glTF Pipeline",
@@ -365,7 +367,7 @@ export class GLTFRenderer {
     return gpuPipeline;
   }
 
-  getShaderModule(args: TODO) {
+  getShaderModule(args: { hasUVs: boolean; useAlphaCutoff: boolean }) {
     const key = JSON.stringify(args);
 
     let existingModule = this.shaderModules.get(key);
@@ -398,7 +400,7 @@ export class GLTFRenderer {
         struct VertexInput {
           @location(${ShaderLocations.POSITION}) position: vec4f,
           @location(${ShaderLocations.NORMAL}) normal: vec3f,
-          #if ${args.hasTexcoord}
+          #if ${args.hasUVs}
             @location(${ShaderLocations.TEXCOORD_0}) uv: vec2f,
           #endif
         }
@@ -414,7 +416,7 @@ export class GLTFRenderer {
           var output: VertexOutput;
           output.position = camera.projection * camera.view * models[instance] * input.position;
           output.normal = normalize((models[instance] * vec4f(input.normal, 0.0)).xyz);
-          #if ${args.uv}
+          #if ${args.hasUVs}
             output.uv = input.uv;
           #else
             output.uv = vec2f(0);
@@ -480,15 +482,16 @@ export class GLTFRenderer {
 
     // The baseColorTexture may not be specified either. If not use a plain white texture instead.
     const index = material.pbrMetallicRoughness?.baseColorTexture?.index;
-    let baseColor = index
-      ? {
-          texture: this.textures[index].texture,
-          sampler: this.textures[index].sampler,
-        }
-      : {
-          texture: this.opaqueWhiteTexture,
-          sampler: this.defaultSampler,
-        };
+    let baseColor =
+      index !== undefined
+        ? {
+            texture: this.textures[index].texture,
+            sampler: this.textures[index].sampler,
+          }
+        : {
+            texture: this.opaqueWhiteTexture,
+            sampler: this.defaultSampler,
+          };
 
     const bindGroup = this.device.createBindGroup({
       label: `glTF Material BindGroup`,
@@ -658,8 +661,11 @@ export class GLTFRenderer {
     indexBuffer.unmap();
 
     invariant("indices" in primitive, "Primitive must have indices.");
-
-    const material = gltf.materials[primitive.material];
+    invariant(
+      primitive.material !== undefined,
+      "Primitive must have material."
+    );
+    const material = (gltf.materials ?? [])[primitive.material];
     const gpuMaterial = materialGpuData.get(material);
     invariant(gpuMaterial, "Material not found.");
 
@@ -667,6 +673,10 @@ export class GLTFRenderer {
       buffers: sortedBufferLayout,
       doubleSided: false,
       alphaMode: "OPAQUE",
+      shaderParameters: {
+        hasUVs: "TEXCOORD_0" in primitive.attributes,
+        useAlphaCutoff: material.alphaMode == "MASK",
+      },
     });
 
     const gpuPrimitive = {
