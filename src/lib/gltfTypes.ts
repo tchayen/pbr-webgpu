@@ -7,6 +7,10 @@ export enum ComponentType {
   FLOAT = 5126,
 }
 
+export type GLTFMeshDescriptor = {
+  primitives: GLTFPrimitiveDescriptor[];
+};
+
 export type GLTFBufferViewDescriptor = {
   buffer: number;
   byteLength: number;
@@ -16,6 +20,7 @@ export type GLTFBufferViewDescriptor = {
 };
 
 export type GLTFMaterialDescriptor = {
+  name: string;
   pbrMetallicRoughness: {
     baseColorFactor: [number, number, number, number];
     metallicFactor: number;
@@ -94,9 +99,7 @@ export type GLTFDescriptor = {
     nodes: number[];
   }[];
   nodes: GLTFNodeDescriptor[];
-  meshes: {
-    primitives: GLTFPrimitiveDescriptor[];
-  }[];
+  meshes: GLTFMeshDescriptor[];
   images?: GLTFImageDescriptor[];
   textures?: GLTFTextureDescriptor[];
   samplers?: GLTFSamplerDescriptor[];

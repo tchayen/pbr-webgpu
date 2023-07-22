@@ -133,6 +133,7 @@ export function createSampler(
 
 export function createDefaultSampler(device: GPUDevice) {
   return device.createSampler({
+    label: "default",
     addressModeU: "repeat",
     addressModeV: "repeat",
     magFilter: "linear",
@@ -162,6 +163,7 @@ export async function createTextureFromImage(
   const size = { width: imageBitmap.width, height: imageBitmap.height };
 
   const texture = device.createTexture({
+    label: `${image.name} (${image.mimeType})`,
     size,
     format: "rgba8unorm",
     usage:
@@ -189,6 +191,7 @@ export function createSolidColorTexture(
   const data = new Uint8Array([r * 255, g * 255, b * 255, a * 255]);
   const size = { width: 1, height: 1 };
   const texture = device.createTexture({
+    label: `rgba(${r}, ${g}, ${b}, ${a})`,
     size,
     format: "rgba8unorm",
     usage: GPUTextureUsage.TEXTURE_BINDING | GPUTextureUsage.COPY_DST,

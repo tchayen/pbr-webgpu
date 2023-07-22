@@ -127,6 +127,7 @@ export class GLTFRenderer {
     this.defaultSampler = createDefaultSampler(this.device);
 
     this.instanceBindGroupLayout = this.device.createBindGroupLayout({
+      label: "instance",
       entries: [
         {
           binding: 0,
@@ -137,7 +138,7 @@ export class GLTFRenderer {
     });
 
     this.cameraBindGroupLayout = this.device.createBindGroupLayout({
-      label: `Frame BindGroupLayout`,
+      label: "camera",
       entries: [
         {
           binding: 0,
@@ -148,7 +149,7 @@ export class GLTFRenderer {
     });
 
     this.materialBindGroupLayout = this.device.createBindGroupLayout({
-      label: `glTF Material BindGroupLayout`,
+      label: "material",
       entries: [
         {
           binding: 0, // Material uniforms
@@ -169,7 +170,7 @@ export class GLTFRenderer {
     });
 
     this.pipelineLayout = this.device.createPipelineLayout({
-      label: "glTF Pipeline Layout",
+      label: "glTF scene",
       bindGroupLayouts: [
         this.cameraBindGroupLayout,
         this.instanceBindGroupLayout,
@@ -178,12 +179,13 @@ export class GLTFRenderer {
     });
 
     this.cameraUniformBuffer = this.device.createBuffer({
+      label: "camera uniform",
       size: Float32Array.BYTES_PER_ELEMENT * 36,
       usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
     });
 
     this.cameraBindGroup = this.device.createBindGroup({
-      label: `Frame BindGroup`,
+      label: "camera",
       layout: this.cameraBindGroupLayout,
       entries: [
         {
@@ -215,6 +217,7 @@ export class GLTFRenderer {
     }
 
     const instanceBuffer = this.device.createBuffer({
+      label: "instance",
       size: 16 * Float32Array.BYTES_PER_ELEMENT * primitiveInstances.total,
       usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST,
       mappedAtCreation: true,
@@ -259,7 +262,7 @@ export class GLTFRenderer {
     instanceBuffer.unmap();
 
     this.instanceBindGroup = this.device.createBindGroup({
-      label: `glTF Instance BindGroup`,
+      label: "instance",
       layout: this.instanceBindGroupLayout,
       entries: [
         {
@@ -270,25 +273,25 @@ export class GLTFRenderer {
     });
 
     this.depthTexture = this.device.createTexture({
-      label: "Color texture",
+      label: "depth",
       size: {
         width: this.canvas.width,
         height: this.canvas.height,
       },
       format: "depth24plus",
       sampleCount: SAMPLE_COUNT,
-      usage: GPUTextureUsage.RENDER_ATTACHMENT | GPUTextureUsage.COPY_SRC,
+      usage: GPUTextureUsage.RENDER_ATTACHMENT,
     });
-    this.depthTextureView = this.depthTexture.createView();
+    this.depthTextureView = this.depthTexture.createView({ label: "depth" });
 
     this.colorTexture = this.device.createTexture({
-      label: "Depth texture",
+      label: "color texture",
       size: { width: this.canvas.width, height: this.canvas.height },
       sampleCount: SAMPLE_COUNT,
       format: "bgra8unorm",
-      usage: GPUTextureUsage.RENDER_ATTACHMENT,
+      usage: GPUTextureUsage.RENDER_ATTACHMENT | GPUTextureUsage.COPY_SRC,
     });
-    this.colorTextureView = this.colorTexture.createView();
+    this.colorTextureView = this.colorTexture.createView({ label: "color" });
   }
 
   getPipelineForPrimitive(args: {
@@ -325,7 +328,7 @@ export class GLTFRenderer {
     const module = this.getShaderModule(args.shaderParameters);
 
     const pipeline = this.device.createRenderPipeline({
-      label: "glTF Pipeline",
+      label: "glTF scene",
       layout: this.pipelineLayout,
       vertex: {
         module,
@@ -377,6 +380,7 @@ export class GLTFRenderer {
     }
 
     const shaderModule = this.device.createShaderModule({
+      label: "glTF scene",
       code: wgsl/* wgsl */ `
         struct Camera {
           projection: mat4x4f,
@@ -466,6 +470,7 @@ export class GLTFRenderer {
   ) {
     const valueCount = 5;
     const materialUniformBuffer = this.device.createBuffer({
+      label: `"${material.name}"`,
       size: alignTo(valueCount, 4) * Float32Array.BYTES_PER_ELEMENT,
       usage: GPUBufferUsage.UNIFORM,
       mappedAtCreation: true,
@@ -494,7 +499,7 @@ export class GLTFRenderer {
           };
 
     const bindGroup = this.device.createBindGroup({
-      label: `glTF Material BindGroup`,
+      label: `"${material.name}"`,
       layout: this.materialBindGroupLayout,
       entries: [
         {
@@ -513,9 +518,7 @@ export class GLTFRenderer {
     });
 
     // Associate the bind group with this material.
-    materialGpuData.set(material, {
-      bindGroup,
-    });
+    materialGpuData.set(material, { bindGroup });
   }
 
   setupPrimitiveInstances(
@@ -583,6 +586,7 @@ export class GLTFRenderer {
         );
 
         const gpuBuffer = this.device.createBuffer({
+          label: "primitive",
           size: alignTo(bufferView.byteLength, 4),
           usage: GPUBufferUsage.VERTEX,
           mappedAtCreation: true,
@@ -653,6 +657,7 @@ export class GLTFRenderer {
     );
 
     const indexBuffer = this.device.createBuffer({
+      label: "index",
       size: alignTo(bufferView.byteLength, 4),
       usage: GPUBufferUsage.INDEX,
       mappedAtCreation: true,
@@ -764,7 +769,9 @@ export class GLTFRenderer {
   }
 
   render() {
-    const commandEncoder = this.device.createCommandEncoder();
+    const commandEncoder = this.device.createCommandEncoder({
+      label: "glTF scene",
+    });
     const passEncoder = commandEncoder.beginRenderPass({
       colorAttachments: [
         {
