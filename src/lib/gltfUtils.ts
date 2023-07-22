@@ -1,3 +1,4 @@
+import { MipmapGenerator } from "./MipmapGenerator";
 import {
   ComponentType,
   GLTFAccessorDescriptor,
@@ -145,7 +146,8 @@ export function createDefaultSampler(device: GPUDevice) {
 export async function createTextureFromImage(
   device: GPUDevice,
   gltf: GLTFDescriptor,
-  image: GLTFImageDescriptor
+  image: GLTFImageDescriptor,
+  mipmapGenerator: MipmapGenerator
 ) {
   const bufferView = gltf.bufferViews[image.bufferView];
   const buffer = gltf.buffers[bufferView.buffer];
@@ -162,6 +164,9 @@ export async function createTextureFromImage(
 
   const size = { width: imageBitmap.width, height: imageBitmap.height };
 
+  const mipLevelCount =
+    Math.floor(Math.log2(Math.max(imageBitmap.width, imageBitmap.height))) + 1;
+
   const texture = device.createTexture({
     label: `${image.name} (${image.mimeType})`,
     size,
@@ -170,6 +175,7 @@ export async function createTextureFromImage(
       GPUTextureUsage.TEXTURE_BINDING |
       GPUTextureUsage.COPY_DST |
       GPUTextureUsage.RENDER_ATTACHMENT,
+    mipLevelCount,
   });
 
   device.queue.copyExternalImageToTexture(
@@ -177,6 +183,7 @@ export async function createTextureFromImage(
     { texture },
     size
   );
+  mipmapGenerator.generateMipmaps(texture);
 
   return texture;
 }

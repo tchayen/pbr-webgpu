@@ -2,6 +2,7 @@ import { readGlb } from "./lib/readGlb";
 import { invariant } from "./lib/invariant";
 import { GLTFRenderer } from "./GLTFRenderer";
 import { createTextureFromImage } from "./lib/gltfUtils";
+import { MipmapGenerator } from "./lib/MipmapGenerator";
 
 export async function setupRendering() {
   const glb = await fetch("/assets/sponza.glb").then((response) =>
@@ -35,9 +36,11 @@ export async function setupRendering() {
     alphaMode: "opaque",
   });
 
+  const mipmapGenerator = new MipmapGenerator(device);
+
   const textures = await Promise.all(
     gltf.images?.map((image) => {
-      return createTextureFromImage(device, gltf, image);
+      return createTextureFromImage(device, gltf, image, mipmapGenerator);
     }) ?? []
   );
 

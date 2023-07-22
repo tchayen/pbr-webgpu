@@ -9,7 +9,7 @@ import { createBuffer } from "./createBuffer";
 export function getIrradianceMap(
   device: GPUDevice,
   cubemapTexture: GPUTexture,
-  size: number,
+  size: number
 ) {
   const irradianceTexture = device.createTexture({
     label: "irradiance map",
@@ -72,7 +72,7 @@ export function getIrradianceMap(
   const verticesBuffer = createBuffer(
     device,
     cubeVertexArray,
-    GPUBufferUsage.VERTEX,
+    GPUBufferUsage.VERTEX
   );
 
   const sampler = device.createSampler({
@@ -82,6 +82,7 @@ export function getIrradianceMap(
   });
 
   const uniformBuffer = device.createBuffer({
+    label: "irradiance map uniform",
     size: Float32Array.BYTES_PER_ELEMENT * 16,
     usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
   });
@@ -121,6 +122,7 @@ export function getIrradianceMap(
   });
 
   const bindGroup = device.createBindGroup({
+    label: "irradiance map",
     layout: pipeline.getBindGroupLayout(0),
     entries: [
       {
@@ -145,7 +147,9 @@ export function getIrradianceMap(
   const projection = Mat4.perspective(Math.PI / 2, 1, 0.1, 10);
 
   for (let i = 0; i < 6; i += 1) {
-    const commandEncoder = device.createCommandEncoder();
+    const commandEncoder = device.createCommandEncoder({
+      label: "irradiance map",
+    });
     const passEncoder = commandEncoder.beginRenderPass({
       colorAttachments: [
         {
@@ -171,7 +175,7 @@ export function getIrradianceMap(
     device.queue.writeBuffer(
       uniformBuffer,
       0,
-      new Float32Array(modelViewProjectionMatrix).buffer,
+      new Float32Array(modelViewProjectionMatrix).buffer
     );
 
     passEncoder.setPipeline(pipeline);
