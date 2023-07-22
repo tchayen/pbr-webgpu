@@ -3,7 +3,7 @@ import { Vec3 } from "./math/Vec3";
 
 export class Camera {
   target = new Vec3(0, 0, 0);
-  distance = 150;
+  distance = 15;
 
   scrollDirection = 0;
 
@@ -22,11 +22,22 @@ export class Camera {
     (canvas ?? window).addEventListener("mousedown", this.handleMouseDown);
     (canvas ?? window).addEventListener("mousemove", this.handleMouseMove);
     (canvas ?? window).addEventListener("mouseup", this.handleMouseUp);
+    (canvas ?? window).addEventListener("wheel", this.handleMouseWheel);
 
     if (distance) {
       this.distance = distance;
     }
   }
+
+  handleMouseWheel = (event: WheelEvent) => {
+    this.scrollDirection = Math.sign(event.deltaY);
+
+    const zoomSpeed = 0.5;
+    this.distance -= this.scrollDirection * zoomSpeed;
+
+    const minDistance = 1;
+    this.distance = Math.max(this.distance, minDistance);
+  };
 
   handleMouseDown = (event: MouseEvent) => {
     this.isDragging = true;
