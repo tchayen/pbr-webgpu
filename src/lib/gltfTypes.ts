@@ -8,6 +8,7 @@ export enum ComponentType {
 }
 
 export type GLTFMeshDescriptor = {
+  name: string;
   primitives: GLTFPrimitiveDescriptor[];
 };
 
@@ -36,6 +37,7 @@ export type GLTFMaterialDescriptor = {
     index: number;
     strength?: number;
   };
+  doubleSided?: boolean;
   alphaMode?: "OPAQUE" | "MASK" | "BLEND";
   alphaCutoff?: number;
 };

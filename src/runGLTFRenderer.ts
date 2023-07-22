@@ -4,7 +4,7 @@ import { GLTFRenderer } from "./GLTFRenderer";
 import { createTextureFromImage } from "./lib/gltfUtils";
 
 export async function setupRendering() {
-  const glb = await fetch("/assets/scene4.glb").then((response) =>
+  const glb = await fetch("/assets/sponza.glb").then((response) =>
     response.arrayBuffer()
   );
 
@@ -27,7 +27,7 @@ export async function setupRendering() {
   const adapter = await entry.requestAdapter();
   invariant(adapter, "No GPU found on this system.");
 
-  const device = await adapter.requestDevice();
+  const device = await adapter.requestDevice({ label: "device" });
 
   context.configure({
     device,

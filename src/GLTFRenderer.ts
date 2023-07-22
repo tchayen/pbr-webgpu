@@ -2,6 +2,7 @@ import { invariant } from "./lib/invariant";
 import {
   GLTFDescriptor,
   GLTFMaterialDescriptor,
+  GLTFMeshDescriptor,
   GLTFNodeDescriptor,
   GLTFPrimitiveDescriptor,
 } from "./lib/gltfTypes";
@@ -63,7 +64,7 @@ export class GLTFRenderer {
     string,
     {
       pipeline: GPURenderPipeline;
-      primitives: GpuPrimitive[];
+      materialPrimitives: Map<Material, GpuPrimitive[]>;
     }
   >();
 
@@ -251,6 +252,7 @@ export class GLTFRenderer {
     for (const mesh of gltf.meshes) {
       for (const primitive of mesh.primitives) {
         this.setupPrimitive(
+          mesh,
           primitive,
           gltf,
           primitiveInstances,
@@ -341,7 +343,7 @@ export class GLTFRenderer {
         targets: [
           {
             format: navigator.gpu.getPreferredCanvasFormat(),
-            // blend,
+            blend,
           },
         ],
       },
@@ -362,7 +364,7 @@ export class GLTFRenderer {
 
     const gpuPipeline = {
       pipeline,
-      primitives: [],
+      materialPrimitives: new Map(),
     };
 
     this.pipelineGpuData.set(key, gpuPipeline);
@@ -542,6 +544,7 @@ export class GLTFRenderer {
   }
 
   setupPrimitive(
+    mesh: GLTFMeshDescriptor,
     primitive: GLTFPrimitiveDescriptor,
     gltf: GLTFDescriptor,
     primitiveInstances: PrimitiveInstances,
@@ -586,7 +589,7 @@ export class GLTFRenderer {
         );
 
         const gpuBuffer = this.device.createBuffer({
-          label: "primitive",
+          label: `"${mesh.name}" ${attributeName} primitive`,
           size: alignTo(bufferView.byteLength, 4),
           usage: GPUBufferUsage.VERTEX,
           mappedAtCreation: true,
@@ -657,7 +660,7 @@ export class GLTFRenderer {
     );
 
     const indexBuffer = this.device.createBuffer({
-      label: "index",
+      label: `"${mesh.name}" index`,
       size: alignTo(bufferView.byteLength, 4),
       usage: GPUBufferUsage.INDEX,
       mappedAtCreation: true,
@@ -676,8 +679,8 @@ export class GLTFRenderer {
 
     const pipeline = this.getPipelineForPrimitive({
       buffers: sortedBufferLayout,
-      doubleSided: false,
-      alphaMode: "OPAQUE",
+      doubleSided: material.doubleSided ?? false,
+      alphaMode: material.alphaMode ?? "OPAQUE",
       shaderParameters: {
         hasUVs: "TEXCOORD_0" in primitive.attributes,
         useAlphaCutoff: material.alphaMode == "MASK",
@@ -695,7 +698,12 @@ export class GLTFRenderer {
       material: gpuMaterial,
     };
 
-    pipeline.primitives.push(gpuPrimitive);
+    let materialPrimitives = pipeline.materialPrimitives.get(gpuMaterial);
+    if (!materialPrimitives) {
+      materialPrimitives = [];
+      pipeline.materialPrimitives.set(gpuMaterial, materialPrimitives);
+    }
+    materialPrimitives.push(gpuPrimitive);
   }
 
   getTRS(node: GLTFNodeDescriptor) {
@@ -812,31 +820,36 @@ export class GLTFRenderer {
     for (const gpuPipeline of this.pipelineGpuData.values()) {
       passEncoder.setPipeline(gpuPipeline.pipeline);
 
-      for (const gpuPrimitive of gpuPipeline.primitives) {
-        for (const [bufferIndex, gpuBuffer] of Object.entries(
-          gpuPrimitive.buffers
-        )) {
-          passEncoder.setVertexBuffer(
-            Number(bufferIndex),
-            gpuBuffer.buffer,
-            gpuBuffer.offset
+      for (const [
+        material,
+        primitives,
+      ] of gpuPipeline.materialPrimitives.entries()) {
+        passEncoder.setBindGroup(2, material.bindGroup);
+
+        for (const gpuPrimitive of primitives) {
+          for (const [bufferIndex, gpuBuffer] of Object.entries(
+            gpuPrimitive.buffers
+          )) {
+            passEncoder.setVertexBuffer(
+              Number(bufferIndex),
+              gpuBuffer.buffer,
+              gpuBuffer.offset
+            );
+          }
+          passEncoder.setIndexBuffer(
+            gpuPrimitive.indexBuffer,
+            gpuPrimitive.indexType,
+            gpuPrimitive.indexOffset
+          );
+
+          passEncoder.drawIndexed(
+            gpuPrimitive.drawCount,
+            gpuPrimitive.instances.count,
+            0,
+            0,
+            gpuPrimitive.instances.first
           );
         }
-        passEncoder.setIndexBuffer(
-          gpuPrimitive.indexBuffer,
-          gpuPrimitive.indexType,
-          gpuPrimitive.indexOffset
-        );
-
-        passEncoder.setBindGroup(2, gpuPrimitive.material.bindGroup);
-
-        passEncoder.drawIndexed(
-          gpuPrimitive.drawCount,
-          gpuPrimitive.instances.count,
-          0,
-          0,
-          gpuPrimitive.instances.first
-        );
       }
     }
     passEncoder.end();
