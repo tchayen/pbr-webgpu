@@ -39,7 +39,7 @@ export function parseObjFile(objFileContents: string): ObjData {
       );
     } else if (t[0] === "f") {
       const face: FaceVertex[] = [];
-      for (let i = 1; i < t.length; i += 1) {
+      for (let i = 1; i < t.length; i++) {
         const v = t[i].split("/");
         const vertexIndex = parseInt(v[0]) - 1;
         const uvIndex = parseInt(v[1]) - 1;

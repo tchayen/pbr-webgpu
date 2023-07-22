@@ -146,7 +146,7 @@ export function getIrradianceMap(
 
   const projection = Mat4.perspective(Math.PI / 2, 1, 0.1, 10);
 
-  for (let i = 0; i < 6; i += 1) {
+  for (let i = 0; i < 6; i++) {
     const commandEncoder = device.createCommandEncoder({
       label: "irradiance map",
     });

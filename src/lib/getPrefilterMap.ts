@@ -176,7 +176,7 @@ fn main(@location(0) worldPosition: vec4f) -> @location(0) vec4f {
 
   const projection = Mat4.perspective(Math.PI / 2, 1, 0.1, 10);
 
-  for (let mip = 0; mip < levels; mip += 1) {
+  for (let mip = 0; mip < levels; mip++) {
     const width = prefilterTexture.width >> mip;
     const height = prefilterTexture.height >> mip;
 
@@ -210,7 +210,7 @@ fn main(@location(0) worldPosition: vec4f) -> @location(0) vec4f {
       mipLevelCount: 1,
     });
 
-    for (let i = 0; i < 6; i += 1) {
+    for (let i = 0; i < 6; i++) {
       const commandEncoder = device.createCommandEncoder({
         label: "prefilter map",
       });

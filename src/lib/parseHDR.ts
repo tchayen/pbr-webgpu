@@ -37,7 +37,7 @@ export async function parseHDR(url: string) {
   let gamma = 1;
   let rle = false;
 
-  for (let i = 0; i < 20; i += 1) {
+  for (let i = 0; i < 20; i++) {
     let line = readLine();
     let match;
     if ((match = line.match(radiancePattern))) {
@@ -171,7 +171,7 @@ function readPixelsRawRLE(
 
     ptr = 0;
     // Read each of the four channels for the scanline into the buffer.
-    for (let i = 0; i < 4; i += 1) {
+    for (let i = 0; i < 4; i++) {
       ptr_end = (i + 1) * scanlineWidth;
       while (ptr < ptr_end) {
         if (readBuf(twoBytes) < twoBytes.length) {
@@ -203,7 +203,7 @@ function readPixelsRawRLE(
       }
     }
 
-    for (let i = 0; i < scanlineWidth; i += 1) {
+    for (let i = 0; i < scanlineWidth; i++) {
       data[offset + 0] = scanlineBuffer[i];
       data[offset + 1] = scanlineBuffer[i + scanlineWidth];
       data[offset + 2] = scanlineBuffer[i + 2 * scanlineWidth];
