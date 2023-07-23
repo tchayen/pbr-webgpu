@@ -1,6 +1,5 @@
 import { readGlb } from "./lib/readGlb";
 import { invariant } from "./lib/invariant";
-import { GLTFRenderer } from "./GLTFRenderer";
 import { createTextureFromImage } from "./lib/gltfUtils";
 import { MipmapGenerator } from "./lib/MipmapGenerator";
 import { renderToCubemap } from "./lib/convertEquirectangularToCubemap";

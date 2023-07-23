@@ -475,6 +475,8 @@ export class GltfPbrRenderer {
 
         struct Material {
           baseColorFactor: vec4f,
+          metallicFactor: f32,
+          roughnessFactor: f32,
           alphaCutoff: f32,
         };
 
@@ -562,9 +564,9 @@ export class GltfPbrRenderer {
           #endif
 
           let ao = 1.0;
-          let albedo = vec3f(1, 0, 0);
-          let metallic = 1.0;
-          let roughness = 0.5;
+          let albedo = baseColor.rgb;
+          let metallic = material.metallicFactor;
+          let roughness = material.roughnessFactor;
 
           let n = normalize(input.normal);
           let v = normalize(camera.position - input.worldPosition);
@@ -638,10 +640,18 @@ export class GltfPbrRenderer {
       materialUniformBuffer.getMappedRange(),
     );
 
-    materialBufferArray.set(
-      material.pbrMetallicRoughness?.baseColorFactor || [1, 1, 1, 1],
-    );
-    materialBufferArray[4] = material.alphaCutoff || 0.5;
+    // moose
+    console.log({ material });
+
+    const pbr = material.pbrMetallicRoughness;
+
+    materialBufferArray.set([
+      ...(pbr.baseColorFactor ?? [1, 1, 1, 1]),
+      pbr.metallicFactor ?? 1,
+      pbr.roughnessFactor ?? 0.5,
+      material.alphaCutoff ?? 0.5,
+    ]);
+
     materialUniformBuffer.unmap();
 
     // The baseColorTexture may not be specified either. If not use a plain white texture instead.
