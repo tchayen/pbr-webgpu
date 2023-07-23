@@ -12,6 +12,12 @@ body {
   -webkit-font-smoothing: antialiased;
 }
 
+html,
+body {
+  overflow: hidden;
+  height: 100%;
+}
+
 :root {
   font-family: "Inter", sans-serif;
 }

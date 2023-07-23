@@ -1,6 +1,6 @@
 import { createBuffer } from "./createBuffer";
 import { Mat4 } from "./math/Mat4";
-import { parseHDR } from "./parseHDR";
+import { HDRData, parseHDR } from "./parseHDR";
 import {
   cubeVertexArray,
   cubemapVertexShader,
@@ -11,11 +11,7 @@ import {
  * This function takes URL of HDR equirectangular image and renders it to a
  * cubemap texture.
  */
-export async function renderToCubemap(
-  device: GPUDevice,
-  url: string,
-  size: number,
-) {
+export function renderToCubemap(device: GPUDevice, hdr: HDRData, size: number) {
   const cubemapVerticesBuffer = createBuffer(
     device,
     cubeVertexArray,
@@ -32,8 +28,6 @@ export async function renderToCubemap(
       GPUTextureUsage.COPY_DST |
       GPUTextureUsage.RENDER_ATTACHMENT,
   });
-
-  const hdr = await parseHDR(url);
 
   const equirectangularTexture = device.createTexture({
     label: "source equirectangular texture",

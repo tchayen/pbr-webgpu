@@ -3,11 +3,30 @@ import { invariant } from "./lib/invariant";
 import { GLTFRenderer } from "./GLTFRenderer";
 import { createTextureFromImage } from "./lib/gltfUtils";
 import { MipmapGenerator } from "./lib/MipmapGenerator";
+import { renderToCubemap } from "./lib/convertEquirectangularToCubemap";
+import { getIrradianceMap } from "./lib/getIrradianceMap";
+import { getPrefilterMap } from "./lib/getPrefilterMap";
+import { getBRDFConvolutionLUT } from "./lib/getBRDFconvolution";
+import { GltfPbrRenderer } from "./GltfPbrRenderer";
+import { parseHDR } from "./lib/parseHDR";
+import { logTime } from "./log";
+
+const config = {
+  cubemapSize: 1024,
+  irradianceMapSize: 32,
+  prefilterMapSize: 256,
+  brdfLutSize: 512,
+  roughnessLevels: 5,
+  sampleCount: 4,
+};
 
 export async function setupRendering() {
-  const glb = await fetch("/assets/sponza.glb").then((response) =>
-    response.arrayBuffer(),
+  const [glb, hdri] = await Promise.all(
+    ["/assets/scene4.glb", "/assets/goegap_1k.hdr"].map((url) =>
+      fetch(url).then((response) => response.arrayBuffer()),
+    ),
   );
+  logTime("Downloaded GLB.");
 
   const gltf = readGlb(glb);
   console.log(gltf);
@@ -18,6 +37,8 @@ export async function setupRendering() {
   canvas.style.setProperty("width", `${window.innerWidth}px`);
   canvas.style.setProperty("height", `${window.innerHeight}px`);
   document.body.appendChild(canvas);
+
+  logTime("Created canvas.");
 
   const context = canvas.getContext("webgpu");
   invariant(context, "WebGPU is not supported in this browser.");
@@ -36,6 +57,8 @@ export async function setupRendering() {
     alphaMode: "opaque",
   });
 
+  logTime("Configured WebGPU.");
+
   const mipmapGenerator = new MipmapGenerator(device);
 
   const textures = await Promise.all(
@@ -44,7 +67,47 @@ export async function setupRendering() {
     }) ?? [],
   );
 
-  const renderer = new GLTFRenderer(device, gltf, canvas, context, textures);
+  logTime("Loaded textures.");
 
-  renderer.render();
+  const hdr = parseHDR(hdri);
+  logTime("Parsed HDRI.");
+
+  const cubemapTexture = renderToCubemap(device, hdr, config.cubemapSize);
+  logTime("Generated cubemap from equirectangular.");
+
+  const irradianceMap = getIrradianceMap(
+    device,
+    cubemapTexture,
+    config.irradianceMapSize,
+  );
+  logTime("Generated irradiance map.");
+
+  const prefilterMap = getPrefilterMap(
+    device,
+    cubemapTexture,
+    config.prefilterMapSize,
+    config.roughnessLevels,
+  );
+  logTime("Generated prefilter map.");
+
+  const brdfLookup = getBRDFConvolutionLUT(device, config.brdfLutSize);
+  logTime("Generated BRDF lookup table.");
+
+  const renderer = new GltfPbrRenderer(
+    device,
+    gltf,
+    canvas,
+    context,
+    textures,
+    irradianceMap,
+    prefilterMap,
+    brdfLookup,
+  );
+
+  function render() {
+    renderer.render();
+    requestAnimationFrame(render);
+  }
+
+  render();
 }

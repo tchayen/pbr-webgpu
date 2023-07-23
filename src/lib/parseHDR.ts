@@ -7,11 +7,17 @@ let exposurePattern = "EXPOSURE=\\s*([0-9]*[.][0-9]*)";
 let formatPattern = "FORMAT=32-bit_rle_rgbe";
 let widthHeightPattern = "-Y ([0-9]+) \\+X ([0-9]+)";
 
+export type HDRData = {
+  width: number;
+  height: number;
+  exposure: number;
+  gamma: number;
+  data: Float16Array;
+};
+
 // Returns data as floats and flipped along Y by default
-export async function parseHDR(url: string) {
-  const response = await fetch(url);
-  const arrayBuffer = await response.arrayBuffer();
-  const buffer = new Uint8Array(arrayBuffer);
+export function parseHDR(source: ArrayBuffer): HDRData {
+  const buffer = new Uint8Array(source);
 
   let fileOffset = 0;
   const bufferLength = buffer.length;
