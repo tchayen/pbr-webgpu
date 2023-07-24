@@ -26,17 +26,12 @@ export type GLTFMaterialDescriptor = {
     baseColorFactor: [number, number, number, number];
     metallicFactor: number;
     roughnessFactor: number;
-    baseColorTexture?: {
-      index: number;
-    };
-    metallicRoughnessTexture?: {
-      index: number;
-    };
+    baseColorTexture?: { index: number };
+    metallicRoughnessTexture?: { index: number };
   };
-  normalTexture?: {
-    index: number;
-    strength?: number;
-  };
+  normalTexture?: { index: number };
+  occlusionTexture?: { index: number };
+  emissiveTexture?: { index: number };
   doubleSided?: boolean;
   alphaMode?: "OPAQUE" | "MASK" | "BLEND";
   alphaCutoff?: number;
