@@ -638,11 +638,15 @@ export class GltfPbrRenderer {
           var normal = textureSample(normalTexture, normalSampler, input.uv).rgb;
           normal = normalize(normal * 2.0 - 1.0);
 
+          #if ${args.hasTangents}
           var n = normalize(input.normal);
           let t = normalize(input.tangent.xyz);
           let b = cross(n, t) * input.tangent.w;
           let tbn = mat3x3f(t, b, n);
           n = normalize(tbn * normal);
+          #else
+          let n = normalize(input.normal);
+          #endif
 
           let v = normalize(camera.position - input.worldPosition);
           let r = reflect(-v, n);
@@ -761,7 +765,7 @@ export class GltfPbrRenderer {
             sampler: this.textures[aoIndex].sampler,
           }
         : {
-            texture: this.transparentBlackTexture,
+            texture: this.opaqueWhiteTexture,
             sampler: this.defaultSampler,
           };
 
