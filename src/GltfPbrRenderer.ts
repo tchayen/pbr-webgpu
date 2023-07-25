@@ -84,16 +84,20 @@ export class GltfPbrRenderer {
 
   pipelineLayout: GPUPipelineLayout;
 
-  cameraBindGroupLayout: GPUBindGroupLayout;
-  instanceBindGroupLayout: GPUBindGroupLayout;
-  materialBindGroupLayout: GPUBindGroupLayout;
-  pbrBindGroupLayout: GPUBindGroupLayout;
+  bindGroupLayouts: {
+    camera: GPUBindGroupLayout;
+    instance: GPUBindGroupLayout;
+    material: GPUBindGroupLayout;
+    pbr: GPUBindGroupLayout;
+  };
 
   cameraUniformBuffer: GPUBuffer;
 
-  cameraBindGroup: GPUBindGroup;
-  instanceBindGroup: GPUBindGroup;
-  pbrBindGroup: GPUBindGroup;
+  bindGroups: {
+    camera: GPUBindGroup;
+    instance: GPUBindGroup;
+    pbr: GPUBindGroup;
+  };
 
   shaderModules: Map<string, GPUShaderModule> = new Map();
 
@@ -114,10 +118,16 @@ export class GltfPbrRenderer {
   roughnessMetallicTextures = new Map<string, GPUTexture>();
 
   defaultSampler: GPUSampler;
+  samplerBRDF: GPUSampler;
   opaqueWhiteTexture: GPUTexture;
   transparentBlackTexture: GPUTexture;
   defaultNormalTexture: GPUTexture;
-  samplerBRDF: GPUSampler;
+
+  ibl: {
+    irradianceMap: GPUTexture;
+    prefilterMap: GPUTexture;
+    brdfLookup: GPUTexture;
+  };
 
   constructor(
     private device: GPUDevice,
@@ -125,11 +135,17 @@ export class GltfPbrRenderer {
     private canvas: HTMLCanvasElement,
     private context: GPUCanvasContext,
     textures: GPUTexture[],
-    private irradianceMap: GPUTexture,
-    private prefilterMap: GPUTexture,
-    private brdfLookup: GPUTexture,
+    irradianceMap: GPUTexture,
+    prefilterMap: GPUTexture,
+    brdfLookup: GPUTexture,
   ) {
     this.render = this.render.bind(this);
+
+    this.ibl = {
+      irradianceMap,
+      prefilterMap,
+      brdfLookup,
+    };
 
     this.camera = new Camera(0, 0);
 
@@ -150,122 +166,121 @@ export class GltfPbrRenderer {
     );
     this.defaultSampler = createDefaultSampler(this.device);
 
-    this.instanceBindGroupLayout = this.device.createBindGroupLayout({
-      label: "instance",
-      entries: [
-        {
-          binding: 0,
-          visibility: GPUShaderStage.VERTEX,
-          buffer: { type: "read-only-storage" },
-        },
-      ],
-    });
-
-    this.cameraBindGroupLayout = this.device.createBindGroupLayout({
-      label: "camera",
-      entries: [
-        {
-          binding: 0,
-          visibility: GPUShaderStage.VERTEX | GPUShaderStage.FRAGMENT,
-          buffer: {},
-        },
-      ],
-    });
-
-    this.materialBindGroupLayout = this.device.createBindGroupLayout({
-      label: "material",
-      entries: [
-        // Material uniforms
-        {
-          binding: 0,
-          visibility: GPUShaderStage.FRAGMENT,
-          buffer: {},
-        },
-        // Albedo
-        {
-          binding: 1,
-          visibility: GPUShaderStage.FRAGMENT,
-          sampler: {},
-        },
-        {
-          binding: 2,
-          visibility: GPUShaderStage.FRAGMENT,
-          texture: {},
-        },
-        // Normal
-        {
-          binding: 3,
-          visibility: GPUShaderStage.FRAGMENT,
-          sampler: {},
-        },
-        {
-          binding: 4,
-          visibility: GPUShaderStage.FRAGMENT,
-          texture: {},
-        },
-        // RoughnessMetallic
-        {
-          binding: 5,
-          visibility: GPUShaderStage.FRAGMENT,
-          sampler: {},
-        },
-        {
-          binding: 6,
-          visibility: GPUShaderStage.FRAGMENT,
-          texture: {},
-        },
-        // AO
-        {
-          binding: 7,
-          visibility: GPUShaderStage.FRAGMENT,
-          sampler: {},
-        },
-        {
-          binding: 8,
-          visibility: GPUShaderStage.FRAGMENT,
-          texture: {},
-        },
-      ],
-    });
-
-    this.pbrBindGroupLayout = this.device.createBindGroupLayout({
-      label: "PBR textures",
-      entries: [
-        {
-          binding: 0,
-          visibility: GPUShaderStage.FRAGMENT,
-          sampler: {},
-        },
-        {
-          binding: 1,
-          visibility: GPUShaderStage.FRAGMENT,
-          sampler: {},
-        },
-        {
-          binding: 2,
-          visibility: GPUShaderStage.FRAGMENT,
-          texture: {},
-        },
-        {
-          binding: 3,
-          visibility: GPUShaderStage.FRAGMENT,
-          texture: { viewDimension: "cube" },
-        },
-        {
-          binding: 4,
-          visibility: GPUShaderStage.FRAGMENT,
-          texture: { viewDimension: "cube" },
-        },
-      ],
-    });
+    this.bindGroupLayouts = {
+      instance: this.device.createBindGroupLayout({
+        label: "instance",
+        entries: [
+          {
+            binding: 0,
+            visibility: GPUShaderStage.VERTEX,
+            buffer: { type: "read-only-storage" },
+          },
+        ],
+      }),
+      camera: this.device.createBindGroupLayout({
+        label: "camera",
+        entries: [
+          {
+            binding: 0,
+            visibility: GPUShaderStage.VERTEX | GPUShaderStage.FRAGMENT,
+            buffer: {},
+          },
+        ],
+      }),
+      material: this.device.createBindGroupLayout({
+        label: "material",
+        entries: [
+          // Material uniforms
+          {
+            binding: 0,
+            visibility: GPUShaderStage.FRAGMENT,
+            buffer: {},
+          },
+          // Albedo
+          {
+            binding: 1,
+            visibility: GPUShaderStage.FRAGMENT,
+            sampler: {},
+          },
+          {
+            binding: 2,
+            visibility: GPUShaderStage.FRAGMENT,
+            texture: {},
+          },
+          // Normal
+          {
+            binding: 3,
+            visibility: GPUShaderStage.FRAGMENT,
+            sampler: {},
+          },
+          {
+            binding: 4,
+            visibility: GPUShaderStage.FRAGMENT,
+            texture: {},
+          },
+          // RoughnessMetallic
+          {
+            binding: 5,
+            visibility: GPUShaderStage.FRAGMENT,
+            sampler: {},
+          },
+          {
+            binding: 6,
+            visibility: GPUShaderStage.FRAGMENT,
+            texture: {},
+          },
+          // AO
+          {
+            binding: 7,
+            visibility: GPUShaderStage.FRAGMENT,
+            sampler: {},
+          },
+          {
+            binding: 8,
+            visibility: GPUShaderStage.FRAGMENT,
+            texture: {},
+          },
+        ],
+      }),
+      pbr: this.device.createBindGroupLayout({
+        label: "PBR textures",
+        entries: [
+          {
+            binding: 0,
+            visibility: GPUShaderStage.FRAGMENT,
+            sampler: {},
+          },
+          {
+            binding: 1,
+            visibility: GPUShaderStage.FRAGMENT,
+            sampler: {},
+          },
+          {
+            binding: 2,
+            visibility: GPUShaderStage.FRAGMENT,
+            texture: {},
+          },
+          {
+            binding: 3,
+            visibility: GPUShaderStage.FRAGMENT,
+            texture: { viewDimension: "cube" },
+          },
+          {
+            binding: 4,
+            visibility: GPUShaderStage.FRAGMENT,
+            texture: { viewDimension: "cube" },
+          },
+        ],
+      }),
+    };
 
     this.pipelineLayout = this.device.createPipelineLayout({
       label: "glTF scene",
       bindGroupLayouts: [
-        this.cameraBindGroupLayout,
-        this.instanceBindGroupLayout,
-        this.materialBindGroupLayout,
-        this.pbrBindGroupLayout,
+        this.bindGroupLayouts.camera,
+        this.bindGroupLayouts.instance,
+        this.bindGroupLayouts.material,
+        this.bindGroupLayouts.pbr,
       ],
     });
 
@@ -275,49 +290,11 @@ export class GltfPbrRenderer {
       usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
     });
 
-    this.cameraBindGroup = this.device.createBindGroup({
-      label: "camera",
-      layout: this.cameraBindGroupLayout,
-      entries: [
-        {
-          binding: 0,
-          resource: { buffer: this.cameraUniformBuffer },
-        },
-      ],
-    });
-
     this.samplerBRDF = device.createSampler({
       magFilter: "linear",
       minFilter: "linear",
       addressModeU: "clamp-to-edge",
       addressModeV: "clamp-to-edge",
-    });
-
-    this.pbrBindGroup = this.device.createBindGroup({
-      label: "PBR textures",
-      layout: this.pbrBindGroupLayout,
-      entries: [
-        {
-          binding: 0,
-          resource: this.samplerBRDF,
-        },
-        {
-          binding: 1,
-          resource: this.defaultSampler,
-        },
-        {
-          binding: 2,
-          resource: this.brdfLookup.createView({}),
-        },
-        {
-          binding: 3,
-          resource: this.irradianceMap.createView({ dimension: "cube" }),
-        },
-        {
-          binding: 4,
-          resource: this.prefilterMap.createView({ dimension: "cube" }),
-        },
-      ],
     });
 
     const primitiveInstances: PrimitiveInstances = {
@@ -387,16 +364,54 @@ export class GltfPbrRenderer {
 
     instanceBuffer.unmap();
 
-    this.instanceBindGroup = this.device.createBindGroup({
-      label: "instance",
-      layout: this.instanceBindGroupLayout,
-      entries: [
-        {
-          binding: 0,
-          resource: { buffer: instanceBuffer },
-        },
-      ],
-    });
+    this.bindGroups = {
+      camera: this.device.createBindGroup({
+        label: "camera",
+        layout: this.bindGroupLayouts.camera,
+        entries: [
+          {
+            binding: 0,
+            resource: { buffer: this.cameraUniformBuffer },
+          },
+        ],
+      }),
+      instance: this.device.createBindGroup({
+        label: "instance",
+        layout: this.bindGroupLayouts.instance,
+        entries: [
+          {
+            binding: 0,
+            resource: { buffer: instanceBuffer },
+          },
+        ],
+      }),
+      pbr: this.device.createBindGroup({
+        label: "PBR textures",
+        layout: this.bindGroupLayouts.pbr,
+        entries: [
+          {
+            binding: 0,
+            resource: this.samplerBRDF,
+          },
+          {
+            binding: 1,
+            resource: this.defaultSampler,
+          },
+          {
+            binding: 2,
+            resource: this.ibl.brdfLookup.createView({}),
+          },
+          {
+            binding: 3,
+            resource: this.ibl.irradianceMap.createView({ dimension: "cube" }),
+          },
+          {
+            binding: 4,
+            resource: this.ibl.prefilterMap.createView({ dimension: "cube" }),
+          },
+        ],
+      }),
+    };
 
     this.depthTexture = this.device.createTexture({
       label: "depth",
@@ -731,6 +746,10 @@ export class GltfPbrRenderer {
             sampler: this.textures[albedoIndex].sampler,
           }
         : {
+            // There's a trick here: in fragment shader I am multiplying
+            //baseColorTexture and baseColorFactor. Both have all values set to
+            // 1 so usually either of them is defined and the other is neutral
+            // to the multiplication.
             texture: this.opaqueWhiteTexture,
             sampler: this.defaultSampler,
           };
@@ -782,7 +801,7 @@ export class GltfPbrRenderer {
 
     const bindGroup = this.device.createBindGroup({
       label: `"${material.name}"`,
-      layout: this.materialBindGroupLayout,
+      layout: this.bindGroupLayouts.material,
       entries: [
         // Material uniforms
         {
@@ -833,7 +852,7 @@ export class GltfPbrRenderer {
   }
 
   getRoughnessMetallicTexture(roughness: number, metallic: number) {
-    const key = `${roughness}${metallic}`;
+    const key = `R=${roughness}, M=${metallic}`;
     let texture = this.roughnessMetallicTextures.get(key);
     if (texture) {
       return texture;
@@ -1137,9 +1156,9 @@ export class GltfPbrRenderer {
 
     this.device.queue.writeBuffer(this.cameraUniformBuffer, 0, cameraUniforms);
 
-    passEncoder.setBindGroup(0, this.cameraBindGroup);
-    passEncoder.setBindGroup(1, this.instanceBindGroup);
-    passEncoder.setBindGroup(3, this.pbrBindGroup);
+    passEncoder.setBindGroup(0, this.bindGroups.camera);
+    passEncoder.setBindGroup(1, this.bindGroups.instance);
+    passEncoder.setBindGroup(3, this.bindGroups.pbr);
 
     for (const gpuPipeline of this.pipelineGpuData.values()) {
       passEncoder.setPipeline(gpuPipeline.pipeline);

@@ -109,4 +109,5 @@ export async function setupRendering() {
   }
 
   render();
+  console.log(renderer);
 }
