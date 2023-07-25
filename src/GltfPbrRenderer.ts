@@ -29,6 +29,7 @@ import {
   toneMappings,
 } from "./lib/pbrShaderFunctions";
 import { logTime } from "./log";
+import { hash } from "./lib/hash";
 
 const ShaderLocations: Record<string, number> = {
   POSITION: 0,
@@ -108,6 +109,9 @@ export class GltfPbrRenderer {
 
   // Maps node to its transform.
   nodeTransforms = new Map<GLTFNodeDescriptor, Mat4>();
+
+  // Mapping `${roughness}${metallic}` to texture.
+  roughnessMetallicTextures = new Map<string, GPUTexture>();
 
   defaultSampler: GPUSampler;
   opaqueWhiteTexture: GPUTexture;
@@ -428,7 +432,7 @@ export class GltfPbrRenderer {
       useAlphaCutoff: boolean;
     };
   }) {
-    const key = JSON.stringify(args);
+    const key = hash(JSON.stringify(args));
     let existingPipeline = this.pipelineGpuData.get(key);
 
     if (existingPipeline) {
@@ -520,26 +524,20 @@ export class GltfPbrRenderer {
 
         struct Material {
           baseColorFactor: vec4f,
-          metallicFactor: f32, // TODO: maybe this can be removed now that there's texture?
-          roughnessFactor: f32, // Same.
           alphaCutoff: f32,
         };
 
         @group(0) @binding(0) var<uniform> camera: Camera;
-
         @group(1) @binding(0) var<storage> models: array<mat4x4f>;
 
         // Material
         @group(2) @binding(0) var<uniform> material: Material;
-        @group(2) @binding(1) var materialSampler: sampler;
-        @group(2) @binding(2) var baseColorTexture: texture_2d<f32>;
-
+        @group(2) @binding(1) var albedoSampler: sampler;
+        @group(2) @binding(2) var albedoTexture: texture_2d<f32>;
         @group(2) @binding(3) var normalSampler: sampler;
         @group(2) @binding(4) var normalTexture: texture_2d<f32>;
-
         @group(2) @binding(5) var roughnessMetallicSampler: sampler;
         @group(2) @binding(6) var roughnessMetallicTexture: texture_2d<f32>;
-
         @group(2) @binding(7) var aoSampler: sampler;
         @group(2) @binding(8) var aoTexture: texture_2d<f32>;
 
@@ -554,10 +552,10 @@ export class GltfPbrRenderer {
           @location(${ShaderLocations.POSITION}) position: vec4f,
           @location(${ShaderLocations.NORMAL}) normal: vec3f,
           #if ${args.hasUVs}
-            @location(${ShaderLocations.TEXCOORD_0}) uv: vec2f,
+          @location(${ShaderLocations.TEXCOORD_0}) uv: vec2f,
           #endif
           #if ${args.hasTangents}
-            @location(${ShaderLocations.TANGENT}) tangent: vec4f,
+          @location(${ShaderLocations.TANGENT}) tangent: vec4f,
           #endif
         }
 
@@ -567,7 +565,7 @@ export class GltfPbrRenderer {
           @location(1) uv: vec2f,
           @location(2) worldPosition: vec3f,
           #if ${args.hasTangents}
-            @location(3) tangent: vec4f,
+          @location(3) tangent: vec4f,
           #endif
         };
 
@@ -577,12 +575,12 @@ export class GltfPbrRenderer {
           output.position = camera.projection * camera.view * models[instance] * input.position;
           output.normal = normalize((models[instance] * vec4f(input.normal, 0.0)).xyz);
           #if ${args.hasUVs}
-            output.uv = input.uv;
+          output.uv = input.uv;
           #else
-            output.uv = vec2f(0);
+          output.uv = vec2f(0);
           #endif
           #if ${args.hasTangents}
-            output.tangent = models[instance] * input.tangent;
+          output.tangent = models[instance] * input.tangent;
           #endif
           return output;
         }
@@ -609,23 +607,15 @@ export class GltfPbrRenderer {
         const MAX_REFLECTION_LOD = 4.0;
         const PI = 3.14159265359;
 
-        const lightDirection = vec3f(0.25, 0.5, 1);
-        const lightColor = vec3f(1);
-        const ambientColor = vec3f(0.3);
-
         @fragment
         fn fragmentMain(input: VertexOutput) -> @location(0) vec4f {
-          let baseColor = textureSample(
-            baseColorTexture,
-            materialSampler,
-            input.uv
-          ) * material.baseColorFactor;
+          let baseColor = textureSample(albedoTexture, albedoSampler, input.uv) * material.baseColorFactor;
 
           #if ${args.useAlphaCutoff}
-            // If the alpha mode is MASK discard any fragments below the alpha cutoff.
-            if (baseColor.a < material.alphaCutoff) {
-              discard;
-            }
+          // If the alpha mode is MASK discard any fragments below the alpha cutoff.
+          if (baseColor.a < material.alphaCutoff) {
+            discard;
+          }
           #endif
 
           let ao = textureSample(aoTexture, aoSampler, input.uv).r;
@@ -712,6 +702,9 @@ export class GltfPbrRenderer {
     material: GLTFMaterialDescriptor,
     materialGpuData: Map<GLTFMaterialDescriptor, { bindGroup: GPUBindGroup }>,
   ) {
+    const pbr = material.pbrMetallicRoughness;
+
+    // Set up material buffer.
     const valueCount = 5;
     const materialUniformBuffer = this.device.createBuffer({
       label: `"${material.name}"`,
@@ -722,19 +715,14 @@ export class GltfPbrRenderer {
     const materialBufferArray = new Float32Array(
       materialUniformBuffer.getMappedRange(),
     );
-
-    const pbr = material.pbrMetallicRoughness;
-
     materialBufferArray.set([
       ...(pbr.baseColorFactor ?? [1, 1, 1, 1]),
-      pbr.metallicFactor ?? 1,
-      pbr.roughnessFactor ?? 0.5,
       material.alphaCutoff ?? 0.5,
     ]);
-
     materialUniformBuffer.unmap();
 
-    // The baseColorTexture may not be specified either. If not use a plain white texture instead.
+    // The baseColorTexture may not be specified either. If not use a plain
+    // white texture instead.
     const albedoIndex = pbr?.baseColorTexture?.index;
     let albedo =
       albedoIndex !== undefined
@@ -761,8 +749,7 @@ export class GltfPbrRenderer {
             sampler: this.textures[roughnessMetallicIndex].sampler,
           }
         : {
-            texture: createRoughnessMetallicTexture(
-              this.device,
+            texture: this.getRoughnessMetallicTexture(
               roughnessFactor,
               metallicFactor,
             ),
@@ -797,8 +784,9 @@ export class GltfPbrRenderer {
       label: `"${material.name}"`,
       layout: this.materialBindGroupLayout,
       entries: [
+        // Material uniforms
         {
-          binding: 0, // Material uniforms
+          binding: 0,
           resource: { buffer: materialUniformBuffer },
         },
         // Albedo
@@ -844,6 +832,18 @@ export class GltfPbrRenderer {
     materialGpuData.set(material, { bindGroup });
   }
 
+  getRoughnessMetallicTexture(roughness: number, metallic: number) {
+    const key = `${roughness}${metallic}`;
+    let texture = this.roughnessMetallicTextures.get(key);
+    if (texture) {
+      return texture;
+    }
+
+    texture = createRoughnessMetallicTexture(this.device, roughness, metallic);
+    this.roughnessMetallicTextures.set(key, texture);
+    return texture;
+  }
+
   setupPrimitiveInstances(
     primitive: GLTFPrimitiveDescriptor,
     primitiveInstances: PrimitiveInstances,
@@ -885,7 +885,7 @@ export class GltfPbrRenderer {
       const shaderLocation = ShaderLocations[attributeName];
 
       if (shaderLocation === undefined) {
-        console.warn(`Unknown shader location ${attributeName}`);
+        console.warn(`Unknown shader location ${attributeName}.`);
         continue;
       }
 
@@ -1080,6 +1080,8 @@ export class GltfPbrRenderer {
       parent = this.nodeParents.get(parent);
     }
 
+    // This is usually a mesh which has children and it just defines a transform
+    // but doesn't have any primitives.
     if (!mesh) {
       return;
     }
