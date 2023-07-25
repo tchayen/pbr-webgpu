@@ -147,7 +147,7 @@ export class GltfPbrRenderer {
       brdfLookup,
     };
 
-    this.camera = new Camera(0, 0);
+    this.camera = new Camera(0.5, 1.6);
 
     this.opaqueWhiteTexture = createSolidColorTexture(this.device, 1, 1, 1, 1);
     this.transparentBlackTexture = createSolidColorTexture(
@@ -237,6 +237,17 @@ export class GltfPbrRenderer {
           },
           {
             binding: 8,
+            visibility: GPUShaderStage.FRAGMENT,
+            texture: {},
+          },
+          // Emissive
+          {
+            binding: 9,
+            visibility: GPUShaderStage.FRAGMENT,
+            sampler: {},
+          },
+          {
+            binding: 10,
             visibility: GPUShaderStage.FRAGMENT,
             texture: {},
           },
@@ -437,6 +448,31 @@ export class GltfPbrRenderer {
     logTime("Finished constructor.");
   }
 
+  getShadowMapShaderModule() {
+    return this.device.createShaderModule({
+      label: "shadow map",
+      code: wgsl/* wgsl */ `
+        struct VertexInput {
+          TODO
+        };
+
+        struct VertexOutput {
+          TODO
+        };
+
+        @vertrex
+        fn vertexMain(input: VertexInput) -> VertexOutput {
+          TODO
+        }
+
+        @fragment
+        fn fragmentMain(input: VertexOutput) -> @location(0) vec4f {
+          TODO
+        }
+      `,
+    });
+  }
+
   getPipelineForPrimitive(args: {
     buffers: GPUVertexBufferLayout[];
     doubleSided: boolean;
@@ -555,6 +591,8 @@ export class GltfPbrRenderer {
         @group(2) @binding(6) var roughnessMetallicTexture: texture_2d<f32>;
         @group(2) @binding(7) var aoSampler: sampler;
         @group(2) @binding(8) var aoTexture: texture_2d<f32>;
+        @group(2) @binding(9) var emissiveSampler: sampler;
+        @group(2) @binding(10) var emissiveTexture: texture_2d<f32>;
 
         // PBR textures
         @group(3) @binding(0) var samplerBRDF: sampler;
@@ -643,6 +681,7 @@ export class GltfPbrRenderer {
           );
           let metallic = roughnessMetallic.b;
           let roughness = roughnessMetallic.g;
+          let emissive = textureSample(emissiveTexture, emissiveSampler, input.uv).rgb;
 
           var normal = textureSample(normalTexture, normalSampler, input.uv).rgb;
           normal = normalize(normal * 2.0 - 1.0);
@@ -701,7 +740,7 @@ export class GltfPbrRenderer {
 
           let ambient = (kD * diffuse + specular) * ao;
 
-          var color = ambient + lo;
+          var color = ambient + lo + emissive;
           color = toneMapping(color);
           color = pow(color, vec3f(1.0 / 2.2));
           return vec4f(color, 1.0);
@@ -799,6 +838,18 @@ export class GltfPbrRenderer {
             sampler: this.defaultSampler,
           };
 
+    const emissiveIndex = material.emissiveTexture?.index;
+    const emissive =
+      emissiveIndex !== undefined
+        ? {
+            texture: this.textures[emissiveIndex].texture,
+            sampler: this.textures[emissiveIndex].sampler,
+          }
+        : {
+            texture: this.transparentBlackTexture,
+            sampler: this.defaultSampler,
+          };
+
     const bindGroup = this.device.createBindGroup({
       label: `"${material.name}"`,
       layout: this.bindGroupLayouts.material,
@@ -843,6 +894,15 @@ export class GltfPbrRenderer {
         {
           binding: 8,
           resource: ao.texture.createView(),
+        },
+        // Emissive
+        {
+          binding: 9,
+          resource: emissive.sampler,
+        },
+        {
+          binding: 10,
+          resource: emissive.texture.createView(),
         },
       ],
     });
