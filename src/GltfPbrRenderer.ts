@@ -17,6 +17,7 @@ import {
   createSolidColorTexture,
   createDefaultSampler,
   createSampler,
+  createRoughnessMetallicTexture,
 } from "./lib/gltfUtils";
 import { wgsl } from "./lib/wgslPreprocessor";
 import {
@@ -27,6 +28,7 @@ import {
   geometrySmith,
   toneMappings,
 } from "./lib/pbrShaderFunctions";
+import { logTime } from "./log";
 
 const ShaderLocations: Record<string, number> = {
   POSITION: 0,
@@ -412,6 +414,8 @@ export class GltfPbrRenderer {
       usage: GPUTextureUsage.RENDER_ATTACHMENT | GPUTextureUsage.COPY_SRC,
     });
     this.colorTextureView = this.colorTexture.createView({ label: "color" });
+
+    logTime("Finished constructor.");
   }
 
   getPipelineForPrimitive(args: {
@@ -731,7 +735,7 @@ export class GltfPbrRenderer {
     materialUniformBuffer.unmap();
 
     // The baseColorTexture may not be specified either. If not use a plain white texture instead.
-    const albedoIndex = material.pbrMetallicRoughness?.baseColorTexture?.index;
+    const albedoIndex = pbr?.baseColorTexture?.index;
     let albedo =
       albedoIndex !== undefined
         ? {
@@ -743,8 +747,12 @@ export class GltfPbrRenderer {
             sampler: this.defaultSampler,
           };
 
-    const roughnessMetallicIndex =
-      material.pbrMetallicRoughness?.metallicRoughnessTexture?.index;
+    const roughnessMetallicIndex = pbr?.metallicRoughnessTexture?.index;
+
+    // Those two values are not random. They appear to be default values in
+    // glTF, at least exported from Blender.
+    const roughnessFactor = pbr?.roughnessFactor ?? 0.5;
+    const metallicFactor = pbr?.metallicFactor ?? 1;
 
     const roughnessMetallic =
       roughnessMetallicIndex !== undefined
@@ -753,7 +761,11 @@ export class GltfPbrRenderer {
             sampler: this.textures[roughnessMetallicIndex].sampler,
           }
         : {
-            texture: this.transparentBlackTexture,
+            texture: createRoughnessMetallicTexture(
+              this.device,
+              roughnessFactor,
+              metallicFactor,
+            ),
             sampler: this.defaultSampler,
           };
 

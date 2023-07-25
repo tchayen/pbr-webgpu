@@ -206,3 +206,20 @@ export function createSolidColorTexture(
   device.queue.writeTexture({ texture }, data, {}, size);
   return texture;
 }
+
+export function createRoughnessMetallicTexture(
+  device: GPUDevice,
+  roughness: number,
+  metallic: number,
+) {
+  const data = new Uint8Array([0, roughness * 255, metallic * 255, 0]);
+  const size = { width: 1, height: 1 };
+  const texture = device.createTexture({
+    label: `roughness ${roughness}, metallic ${metallic}`,
+    size,
+    format: "rgba8unorm",
+    usage: GPUTextureUsage.TEXTURE_BINDING | GPUTextureUsage.COPY_DST,
+  });
+  device.queue.writeTexture({ texture }, data, {}, size);
+  return texture;
+}
