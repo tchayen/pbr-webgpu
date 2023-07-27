@@ -21,7 +21,7 @@ const config = {
 
 export async function setupRendering() {
   const [glb, hdri] = await Promise.all(
-    ["/assets/helmet.glb", "/assets/venice_sunset_1k.hdr"].map((url) =>
+    ["/assets/scene5.glb", "/assets/venice_sunset_1k.hdr"].map((url) =>
       fetch(url).then((response) => response.arrayBuffer()),
     ),
   );
@@ -101,6 +101,7 @@ export async function setupRendering() {
     irradianceMap,
     prefilterMap,
     brdfLookup,
+    config.sampleCount,
   );
 
   function render() {

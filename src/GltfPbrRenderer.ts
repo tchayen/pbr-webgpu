@@ -38,8 +38,6 @@ const ShaderLocations: Record<string, number> = {
   TANGENT: 3,
 };
 
-const SAMPLE_COUNT = 4;
-
 type Material = {
   bindGroup: GPUBindGroup;
 };
@@ -138,6 +136,7 @@ export class GltfPbrRenderer {
     irradianceMap: GPUTexture,
     prefilterMap: GPUTexture,
     brdfLookup: GPUTexture,
+    private sampleCount: number,
   ) {
     this.render = this.render.bind(this);
 
@@ -431,7 +430,7 @@ export class GltfPbrRenderer {
         height: this.canvas.height,
       },
       format: "depth24plus",
-      sampleCount: SAMPLE_COUNT,
+      sampleCount: this.sampleCount,
       usage: GPUTextureUsage.RENDER_ATTACHMENT,
     });
     this.depthTextureView = this.depthTexture.createView({ label: "depth" });
@@ -439,38 +438,13 @@ export class GltfPbrRenderer {
     this.colorTexture = this.device.createTexture({
       label: "color texture",
       size: { width: this.canvas.width, height: this.canvas.height },
-      sampleCount: SAMPLE_COUNT,
+      sampleCount: this.sampleCount,
       format: "bgra8unorm",
       usage: GPUTextureUsage.RENDER_ATTACHMENT | GPUTextureUsage.COPY_SRC,
     });
     this.colorTextureView = this.colorTexture.createView({ label: "color" });
 
     logTime("Finished constructor.");
-  }
-
-  getShadowMapShaderModule() {
-    return this.device.createShaderModule({
-      label: "shadow map",
-      code: wgsl/* wgsl */ `
-        struct VertexInput {
-          TODO
-        };
-
-        struct VertexOutput {
-          TODO
-        };
-
-        @vertrex
-        fn vertexMain(input: VertexInput) -> VertexOutput {
-          TODO
-        }
-
-        @fragment
-        fn fragmentMain(input: VertexOutput) -> @location(0) vec4f {
-          TODO
-        }
-      `,
-    });
   }
 
   getPipelineForPrimitive(args: {
@@ -536,7 +510,7 @@ export class GltfPbrRenderer {
         format: "depth24plus",
       },
       multisample: {
-        count: SAMPLE_COUNT,
+        count: this.sampleCount,
       },
     });
 
