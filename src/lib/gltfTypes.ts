@@ -1,3 +1,10 @@
+export const ShaderLocations: Record<string, number> = {
+  POSITION: 0,
+  NORMAL: 1,
+  TEXCOORD_0: 2,
+  TANGENT: 3,
+};
+
 export enum ComponentType {
   BYTE = 5120,
   UNSIGNED_BYTE = 5121,

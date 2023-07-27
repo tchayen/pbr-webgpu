@@ -1,12 +1,12 @@
 import { readGlb } from "./lib/readGlb";
 import { invariant } from "./lib/invariant";
-import { createTextureFromImage } from "./lib/gltfUtils";
+import { createTextureFromImage } from "./lib/renderer/utils";
 import { MipmapGenerator } from "./lib/MipmapGenerator";
 import { renderToCubemap } from "./lib/convertEquirectangularToCubemap";
 import { getIrradianceMap } from "./lib/getIrradianceMap";
 import { getPrefilterMap } from "./lib/getPrefilterMap";
 import { getBRDFConvolutionLUT } from "./lib/getBRDFconvolution";
-import { GltfPbrRenderer } from "./GltfPbrRenderer";
+import { GltfPbrRenderer } from "./lib/renderer/GltfPbrRenderer";
 import { parseHDR } from "./lib/parseHDR";
 import { logTime } from "./log";
 
@@ -17,6 +17,7 @@ const config = {
   brdfLutSize: 512,
   roughnessLevels: 5,
   sampleCount: 4,
+  shadowMapSize: 1024,
 };
 
 export async function setupRendering() {
@@ -102,6 +103,7 @@ export async function setupRendering() {
     prefilterMap,
     brdfLookup,
     config.sampleCount,
+    config.shadowMapSize,
   );
 
   function render() {

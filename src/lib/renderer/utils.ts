@@ -1,11 +1,11 @@
-import { MipmapGenerator } from "./MipmapGenerator";
+import { MipmapGenerator } from "../MipmapGenerator";
 import {
   ComponentType,
   GLTFAccessorDescriptor,
   GLTFDescriptor,
   GLTFImageDescriptor,
   GLTFSamplerDescriptor,
-} from "./gltfTypes";
+} from "../gltfTypes";
 
 function numerOfComponentsForType(type: string) {
   switch (type) {

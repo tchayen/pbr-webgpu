@@ -17,7 +17,7 @@ import {
   createSolidColorTexture,
   createDefaultSampler,
   createSampler,
-} from "./lib/gltfUtils";
+} from "./lib/renderer/utils";
 import { wgsl } from "./lib/wgslPreprocessor";
 
 const ShaderLocations: Record<string, number> = {
