@@ -56,10 +56,6 @@ type GpuPrimitive = {
   material: Material;
 };
 
-type NodeGpuData = {
-  bindGroup: GPUBindGroup;
-};
-
 type PrimitiveInstances = {
   matrices: Map<GLTFPrimitiveDescriptor, Mat4[]>;
   total: number;
@@ -67,18 +63,17 @@ type PrimitiveInstances = {
   offset: number;
 };
 
-export class GltfPbrRenderer {
-  pipelineGpuData = new Map<
-    string,
-    {
-      pipeline: GPURenderPipeline;
-      materialPrimitives: Map<Material, GpuPrimitive[]>;
-    }
-  >();
+type PipelineGPUData = {
+  pipeline: GPURenderPipeline;
+  materialPrimitives: Map<Material, GpuPrimitive[]>;
+};
 
-  primitiveGpuData = new Map<GLTFPrimitiveDescriptor, GpuPrimitive>();
-  nodeGpuData = new Map<GLTFNodeDescriptor, NodeGpuData>();
+export class GltfPbrRenderer {
+  pipelineGpuData = new Map<string, PipelineGPUData>();
   textures: { texture: GPUTexture; sampler: GPUSampler }[] = [];
+
+  // Mapping `${roughness}${metallic}` to texture.
+  roughnessMetallicTextures = new Map<string, GPUTexture>();
 
   pipelineLayout: GPUPipelineLayout;
 
@@ -111,9 +106,6 @@ export class GltfPbrRenderer {
 
   // Maps node to its transform.
   nodeTransforms = new Map<GLTFNodeDescriptor, Mat4>();
-
-  // Mapping `${roughness}${metallic}` to texture.
-  roughnessMetallicTextures = new Map<string, GPUTexture>();
 
   defaultSampler: GPUSampler;
   samplerBRDF: GPUSampler;
@@ -480,6 +472,8 @@ export class GltfPbrRenderer {
     }
 
     const module = this.getShaderModule(args.shaderParameters);
+
+    console.log(args);
 
     const pipeline = this.device.createRenderPipeline({
       label: "glTF scene",
