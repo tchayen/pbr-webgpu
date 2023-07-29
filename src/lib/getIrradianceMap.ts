@@ -151,6 +151,7 @@ export function getIrradianceMap(
       label: "irradiance map",
     });
     const passEncoder = commandEncoder.beginRenderPass({
+      label: "irradiance map",
       colorAttachments: [
         {
           view: irradianceTexture.createView({

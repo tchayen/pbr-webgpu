@@ -24,6 +24,7 @@ import { logTime } from "../../log";
 import { hash } from "../hash";
 import { createPBRShader } from "./createPbrShader";
 import { wgsl } from "../wgslPreprocessor";
+import { Vec3 } from "../math/Vec3";
 
 type Material = {
   bindGroup: GPUBindGroup;
@@ -52,6 +53,7 @@ type PrimitiveInstances = {
 
 type PipelineGPUData = {
   pipeline: GPURenderPipeline;
+  shadowMapPipeline: GPURenderPipeline;
   materialPrimitives: Map<Material, GpuPrimitive[]>;
 };
 
@@ -67,16 +69,16 @@ export class GltfPbrRenderer {
   pipelineLayout: GPUPipelineLayout;
 
   bindGroupLayouts: {
-    camera: GPUBindGroupLayout;
+    scene: GPUBindGroupLayout;
     instance: GPUBindGroupLayout;
     material: GPUBindGroupLayout;
     pbr: GPUBindGroupLayout;
   };
 
-  cameraUniformBuffer: GPUBuffer;
+  sceneUniformBuffer: GPUBuffer;
 
   bindGroups: {
-    camera: GPUBindGroup;
+    scene: GPUBindGroup;
     instance: GPUBindGroup;
     pbr: GPUBindGroup;
   };
@@ -107,6 +109,16 @@ export class GltfPbrRenderer {
     prefilterMap: GPUTexture;
     brdfLookup: GPUTexture;
   };
+
+  // Key is a hash of the pipeline parameters.
+  shadowMapPipelines = new Map<string, GPURenderPipeline>();
+  shadowMapPipelineLayout: GPUPipelineLayout;
+  shadowDepthTexture: GPUTexture;
+  shadowDepthTextureView: GPUTextureView;
+  depthSampler: GPUSampler;
+  debugTextureQuadPipeline: GPURenderPipeline;
+  debugTextureQuadBindGroupLayout: GPUBindGroupLayout;
+  brdfLookupBindGroup: GPUBindGroup;
 
   constructor(
     private device: GPUDevice,
@@ -158,7 +170,7 @@ export class GltfPbrRenderer {
           },
         ],
       }),
-      camera: this.device.createBindGroupLayout({
+      scene: this.device.createBindGroupLayout({
         label: "camera",
         entries: [
           {
@@ -262,6 +274,17 @@ export class GltfPbrRenderer {
             visibility: GPUShaderStage.FRAGMENT,
             texture: { viewDimension: "cube" },
           },
+          // Shadow map
+          {
+            binding: 5,
+            visibility: GPUShaderStage.VERTEX | GPUShaderStage.FRAGMENT,
+            texture: { sampleType: "depth" },
+          },
+          {
+            binding: 6,
+            visibility: GPUShaderStage.VERTEX | GPUShaderStage.FRAGMENT,
+            sampler: { type: "comparison" },
+          },
         ],
       }),
     };
@@ -269,16 +292,25 @@ export class GltfPbrRenderer {
     this.pipelineLayout = this.device.createPipelineLayout({
       label: "glTF scene",
       bindGroupLayouts: [
-        this.bindGroupLayouts.camera,
+        this.bindGroupLayouts.scene,
         this.bindGroupLayouts.instance,
         this.bindGroupLayouts.material,
         this.bindGroupLayouts.pbr,
       ],
     });
 
-    this.cameraUniformBuffer = this.device.createBuffer({
-      label: "camera uniform",
-      size: Float32Array.BYTES_PER_ELEMENT * 36,
+    this.shadowMapPipelineLayout = this.device.createPipelineLayout({
+      label: "shadow map",
+      bindGroupLayouts: [
+        this.bindGroupLayouts.scene, // Probably not this one? But add one with lights and with lightProjection
+        this.bindGroupLayouts.instance,
+      ],
+    });
+
+    this.sceneUniformBuffer = this.device.createBuffer({
+      label: "scene uniform",
+      // mat4x4f mat4x4f vec3f pad vec3f pad vec3f pad mat4x4f
+      size: Float32Array.BYTES_PER_ELEMENT * (16 + 16 + 4 + 4 + 4 + 16),
       usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
     });
 
@@ -309,6 +341,17 @@ export class GltfPbrRenderer {
     for (const node of gltf.nodes) {
       this.setupNode(node, primitiveInstances);
     }
+
+    this.shadowDepthTexture = this.device.createTexture({
+      label: "shadow map",
+      size: { width: this.shadowMapSize, height: this.shadowMapSize },
+      usage:
+        GPUTextureUsage.RENDER_ATTACHMENT | GPUTextureUsage.TEXTURE_BINDING,
+      format: "depth32float",
+    });
+    this.shadowDepthTextureView = this.shadowDepthTexture.createView({
+      label: "shadow map",
+    });
 
     const instanceBuffer = this.device.createBuffer({
       label: "instance",
@@ -356,14 +399,16 @@ export class GltfPbrRenderer {
 
     instanceBuffer.unmap();
 
+    this.depthSampler = this.device.createSampler({ compare: "less" });
+
     this.bindGroups = {
-      camera: this.device.createBindGroup({
-        label: "camera",
-        layout: this.bindGroupLayouts.camera,
+      scene: this.device.createBindGroup({
+        label: "scene",
+        layout: this.bindGroupLayouts.scene,
         entries: [
           {
             binding: 0,
-            resource: { buffer: this.cameraUniformBuffer },
+            resource: { buffer: this.sceneUniformBuffer },
           },
         ],
       }),
@@ -401,6 +446,14 @@ export class GltfPbrRenderer {
             binding: 4,
             resource: this.ibl.prefilterMap.createView({ dimension: "cube" }),
           },
+          {
+            binding: 5,
+            resource: this.shadowDepthTextureView,
+          },
+          {
+            binding: 6,
+            resource: this.depthSampler,
+          },
         ],
       }),
     };
@@ -426,49 +479,185 @@ export class GltfPbrRenderer {
     });
     this.colorTextureView = this.colorTexture.createView({ label: "color" });
 
+    // this.setupDebugTextureQuadPipeline(true);
+    // this.brdfLookupBindGroup = this.createTextureQuadBindGroup(
+    //   this.shadowDepthTextureView,
+    //   true,
+    // );
+    this.setupDebugTextureQuadPipeline(false);
+    this.brdfLookupBindGroup = this.createTextureQuadBindGroup(
+      brdfLookup.createView(),
+      false,
+    );
+
     logTime("Finished constructor.");
   }
 
-  createShadowMapPipeline(buffers: GPUVertexBufferLayout[]) {
-    const layout = this.device.createPipelineLayout({
-      label: "shadow map",
-      bindGroupLayouts: [
-        this.bindGroupLayouts.camera,
-        this.bindGroupLayouts.instance,
-      ],
-    });
-
+  setupDebugTextureQuadPipeline(isShadow: boolean) {
     const module = this.device.createShaderModule({
-      label: "shadow map",
+      label: "debug texture quad",
       code: wgsl/* wgsl */ `
+        var<private> positions: array<vec2f, 3> = array<vec2f, 3>(
+          vec2(-1.0, -1.0), vec2(-1.0, 3.0), vec2(3.0, -1.0));
+
+        struct VertexInput {
+          @builtin(vertex_index) vertexIndex: u32
+        };
+
+        struct VertexOutput {
+          @builtin(position) position: vec4f,
+          @location(0) uv: vec2f,
+        };
+
+        @vertex
+        fn vertexMain(input: VertexInput) -> VertexOutput {
+          var output: VertexOutput;
+
+          output.position = vec4(positions[input.vertexIndex], 1.0, 1.0);
+          output.uv = positions[input.vertexIndex] * 0.5 + 0.5;
+          // output.uv.y = output.uv.y * -1.0;
+
+          return output;
+        }
+
+        struct FragmentInput {
+          @location(0) uv: vec2f
+        };
+
+        #if ${isShadow}
+        @group(0) @binding(0) var shadowTexture: texture_depth_2d;
+        @group(0) @binding(1) var shadowSampler: sampler_comparison;
+        #else
+        @group(0) @binding(0) var debugTexture: texture_2d<f32>;
+        @group(0) @binding(1) var debugSampler: sampler;
+        #endif
+
+        @fragment
+        fn fragmentMain(input: FragmentInput) -> @location(0) vec4f {
+          #if ${isShadow}
+          // let shadowDepth = textureSample(shadowTexture, shadowSampler, input.uv);
+          // return vec4f(shadowDepth, shadowDepth, shadowDepth, 1.0);
+          _ = textureSampleCompare(shadowTexture, shadowSampler, input.uv, 0.5);
+          return vec4f(1, 0, 0, 1);
+          #else
+          return textureSample(debugTexture, debugSampler, input.uv);
+          #endif
+        }
       `,
     });
 
-    const pipeline = this.device.createRenderPipeline({
-      label: "glTF scene shadow map",
-      layout: this.pipelineLayout,
+    this.debugTextureQuadBindGroupLayout = this.device.createBindGroupLayout({
+      label: "debug texture",
+      entries: [
+        {
+          binding: 0,
+          visibility: GPUShaderStage.FRAGMENT,
+          texture: {},
+        },
+        {
+          binding: 1,
+          visibility: GPUShaderStage.FRAGMENT,
+          sampler: isShadow ? { type: "comparison" } : {},
+        },
+      ],
+    });
+
+    this.debugTextureQuadPipeline = this.device.createRenderPipeline({
+      label: "debug texture quad",
+      layout: this.device.createPipelineLayout({
+        label: "glTF scene",
+        bindGroupLayouts: [this.debugTextureQuadBindGroupLayout],
+      }),
       vertex: {
         module,
         entryPoint: "vertexMain",
-        buffers,
       },
       fragment: {
         module,
         entryPoint: "fragmentMain",
         targets: [{ format: navigator.gpu.getPreferredCanvasFormat() }],
       },
-      primitive: {
-        frontFace: "cw",
-        cullMode: "front",
-        topology: "triangle-list",
+      multisample: { count: this.sampleCount },
+    });
+  }
+
+  createTextureQuadBindGroup(textureView: GPUTextureView, isShadow: boolean) {
+    return this.device.createBindGroup({
+      label: "debug texture",
+      layout: this.debugTextureQuadBindGroupLayout,
+      entries: [
+        {
+          binding: 0,
+          resource: textureView,
+        },
+        {
+          binding: 1,
+          resource: isShadow ? this.depthSampler : this.defaultSampler,
+        },
+      ],
+    });
+  }
+
+  getShadowMapPipeline(buffers: GPUVertexBufferLayout[]) {
+    const key = hash(JSON.stringify(buffers));
+
+    let existingPipeline = this.shadowMapPipelines.get(key);
+
+    if (existingPipeline) {
+      return existingPipeline;
+    }
+
+    // Technically this could be shared between all shadow map pipelines as
+    // there is nothing really influencing this.
+    const module = this.device.createShaderModule({
+      label: "shadow map",
+      code: wgsl/* wgsl */ `
+        struct Scene {
+          cameraProjection: mat4x4f,
+          cameraView: mat4x4f,
+          cameraPosition: vec3f,
+          lightPosition: vec3f,
+          lightColor: vec3f,
+          lightViewProjection: mat4x4f,
+        };
+
+        @group(0) @binding(0) var<uniform> scene: Scene;
+        @group(1) @binding(0) var<storage> models: array<mat4x4f>;
+
+        struct VertexInput {
+          @location(${ShaderLocations.POSITION}) position: vec4f,
+        };
+
+        struct VertexOutput {
+          @builtin(position) position: vec4f,
+        };
+
+        @vertex
+        fn vertexMain(input: VertexInput, @builtin(instance_index) instance: u32) -> VertexOutput {
+          var output: VertexOutput;
+          output.position = scene.lightViewProjection * models[instance] * input.position;
+          return output;
+        }
+      `,
+    });
+
+    const pipeline = this.device.createRenderPipeline({
+      label: "glTF scene shadow map",
+      layout: this.shadowMapPipelineLayout,
+      vertex: {
+        module,
+        entryPoint: "vertexMain",
+        buffers,
       },
       depthStencil: {
         depthWriteEnabled: true,
         depthCompare: "less",
-        format: "depth24plus",
+        format: "depth32float",
       },
-      multisample: { count: this.sampleCount },
     });
+
+    this.shadowMapPipelines.set(key, pipeline);
+    return pipeline;
   }
 
   getPipelineForPrimitive(args: {
@@ -524,11 +713,13 @@ export class GltfPbrRenderer {
             blend,
           },
         ],
+        // TODO: use this
+        // constants: {
+        //   shadowMapSize: this.shadowMapSize,
+        // },
       },
       primitive: {
-        frontFace: "cw",
-        cullMode: args.doubleSided ? "none" : "front",
-        topology: "triangle-list",
+        cullMode: args.doubleSided ? "none" : "back",
       },
       depthStencil: {
         depthWriteEnabled: true,
@@ -540,6 +731,7 @@ export class GltfPbrRenderer {
 
     const gpuPipeline = {
       pipeline,
+      shadowMapPipeline: this.getShadowMapPipeline(args.buffers),
       materialPrimitives: new Map(),
     };
 
@@ -579,7 +771,7 @@ export class GltfPbrRenderer {
     // Set up material buffer.
     const valueCount = 5;
     const materialUniformBuffer = this.device.createBuffer({
-      label: `"${material.name}"`,
+      label: `material "${material.name}"`,
       size: alignTo(valueCount, 4) * Float32Array.BYTES_PER_ELEMENT,
       usage: GPUBufferUsage.UNIFORM,
       mappedAtCreation: true,
@@ -669,7 +861,7 @@ export class GltfPbrRenderer {
           };
 
     const bindGroup = this.device.createBindGroup({
-      label: `"${material.name}"`,
+      label: `material "${material.name}"`,
       layout: this.bindGroupLayouts.material,
       entries: [
         // Material uniforms
@@ -1000,7 +1192,54 @@ export class GltfPbrRenderer {
     const commandEncoder = this.device.createCommandEncoder({
       label: "glTF scene",
     });
-    const passEncoder = commandEncoder.beginRenderPass({
+
+    const shadowPass = commandEncoder.beginRenderPass({
+      label: "shadow map",
+      colorAttachments: [],
+      depthStencilAttachment: {
+        view: this.shadowDepthTextureView,
+        depthClearValue: 1,
+        depthLoadOp: "clear",
+        depthStoreOp: "store",
+      },
+    });
+
+    for (const gpuPipeline of this.pipelineGpuData.values()) {
+      shadowPass.setPipeline(gpuPipeline.shadowMapPipeline);
+
+      shadowPass.setBindGroup(0, this.bindGroups.scene);
+      shadowPass.setBindGroup(1, this.bindGroups.instance);
+
+      for (const [, primitives] of gpuPipeline.materialPrimitives.entries()) {
+        for (const gpuPrimitive of primitives) {
+          for (const [bufferIndex, gpuBuffer] of Object.entries(
+            gpuPrimitive.buffers,
+          )) {
+            shadowPass.setVertexBuffer(
+              Number(bufferIndex),
+              gpuBuffer.buffer,
+              gpuBuffer.offset,
+            );
+          }
+          shadowPass.setIndexBuffer(
+            gpuPrimitive.indexBuffer,
+            gpuPrimitive.indexType,
+            gpuPrimitive.indexOffset,
+          );
+          shadowPass.drawIndexed(
+            gpuPrimitive.drawCount,
+            gpuPrimitive.instances.count,
+            0,
+            0,
+            gpuPrimitive.instances.first,
+          );
+        }
+      }
+    }
+    shadowPass.end();
+
+    const renderPass = commandEncoder.beginRenderPass({
+      label: "main pass",
       colorAttachments: [
         {
           view: this.colorTextureView,
@@ -1024,45 +1263,61 @@ export class GltfPbrRenderer {
       0.1,
       1000,
     );
+
     const view = this.camera.getView().invert();
-    const cameraUniforms = new Float32Array([
+
+    const lightProjection = Mat4.orthographic(-20, 20, -20, 20, 0, 100);
+    const lightPosition = new Vec3(3, 2, 1);
+    const lightView = Mat4.lookAt(
+      lightPosition,
+      new Vec3(0, 0, 0),
+      new Vec3(0, 1, 0),
+    );
+    const lightViewProjection = lightProjection.multiply(lightView);
+
+    const sceneUniforms = new Float32Array([
       ...projection.data,
       ...view.data,
       ...this.camera.getPosition().data(),
-      performance.now(),
+      0,
+      ...lightPosition.data(),
+      0,
+      ...new Vec3(1, 1, 1).data(),
+      0,
+      ...lightViewProjection.data,
     ]);
 
-    this.device.queue.writeBuffer(this.cameraUniformBuffer, 0, cameraUniforms);
+    this.device.queue.writeBuffer(this.sceneUniformBuffer, 0, sceneUniforms);
 
-    passEncoder.setBindGroup(0, this.bindGroups.camera);
-    passEncoder.setBindGroup(1, this.bindGroups.instance);
-    passEncoder.setBindGroup(3, this.bindGroups.pbr);
+    renderPass.setBindGroup(0, this.bindGroups.scene);
+    renderPass.setBindGroup(1, this.bindGroups.instance);
+    renderPass.setBindGroup(3, this.bindGroups.pbr);
 
     for (const gpuPipeline of this.pipelineGpuData.values()) {
-      passEncoder.setPipeline(gpuPipeline.pipeline);
+      renderPass.setPipeline(gpuPipeline.pipeline);
 
       for (const [
         material,
         primitives,
       ] of gpuPipeline.materialPrimitives.entries()) {
-        passEncoder.setBindGroup(2, material.bindGroup);
+        renderPass.setBindGroup(2, material.bindGroup);
 
         for (const gpuPrimitive of primitives) {
           for (const [bufferIndex, gpuBuffer] of Object.entries(
             gpuPrimitive.buffers,
           )) {
-            passEncoder.setVertexBuffer(
+            renderPass.setVertexBuffer(
               Number(bufferIndex),
               gpuBuffer.buffer,
               gpuBuffer.offset,
             );
           }
-          passEncoder.setIndexBuffer(
+          renderPass.setIndexBuffer(
             gpuPrimitive.indexBuffer,
             gpuPrimitive.indexType,
             gpuPrimitive.indexOffset,
           );
-          passEncoder.drawIndexed(
+          renderPass.drawIndexed(
             gpuPrimitive.drawCount,
             gpuPrimitive.instances.count,
             0,
@@ -1072,7 +1327,28 @@ export class GltfPbrRenderer {
         }
       }
     }
-    passEncoder.end();
+    renderPass.end();
+
+    if (true) {
+      const debugPass = commandEncoder.beginRenderPass({
+        label: "debug pass",
+        colorAttachments: [
+          {
+            view: this.colorTextureView,
+            resolveTarget: this.context.getCurrentTexture().createView(),
+            clearValue: { r: 0, g: 0, b: 0, a: 1 },
+            loadOp: "clear",
+            storeOp: "store",
+          },
+        ],
+      });
+
+      debugPass.setPipeline(this.debugTextureQuadPipeline);
+      debugPass.setBindGroup(0, this.brdfLookupBindGroup);
+      debugPass.draw(3);
+      debugPass.end();
+    }
+
     this.device.queue.submit([commandEncoder.finish()]);
   }
 }

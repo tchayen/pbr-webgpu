@@ -470,7 +470,7 @@ export class GLTFRenderer {
   ) {
     const valueCount = 5;
     const materialUniformBuffer = this.device.createBuffer({
-      label: `"${material.name}"`,
+      label: `material "${material.name}"`,
       size: alignTo(valueCount, 4) * Float32Array.BYTES_PER_ELEMENT,
       usage: GPUBufferUsage.UNIFORM,
       mappedAtCreation: true,
@@ -499,7 +499,7 @@ export class GLTFRenderer {
           };
 
     const bindGroup = this.device.createBindGroup({
-      label: `"${material.name}"`,
+      label: `material "${material.name}"`,
       layout: this.materialBindGroupLayout,
       entries: [
         {
@@ -778,6 +778,7 @@ export class GLTFRenderer {
       label: "glTF scene",
     });
     const passEncoder = commandEncoder.beginRenderPass({
+      label: "glTF scene",
       colorAttachments: [
         {
           view: this.colorTextureView,

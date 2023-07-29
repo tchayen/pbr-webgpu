@@ -95,6 +95,7 @@ export class MipmapGenerator {
       height = Math.max(1, (height / 2) | 0);
 
       const bindGroup = this.device.createBindGroup({
+        label: "mipmap generator",
         layout: pipeline.getBindGroupLayout(0),
         entries: [
           { binding: 0, resource: this.sampler },
@@ -111,7 +112,7 @@ export class MipmapGenerator {
       currentMipLevel += 1;
 
       const pass = encoder.beginRenderPass({
-        label: "our basic canvas renderPass",
+        label: "mipmap generator",
         colorAttachments: [
           {
             view: texture.createView({

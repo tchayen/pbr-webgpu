@@ -667,6 +667,7 @@ fn main(
 
     const commandEncoder = this.device.createCommandEncoder();
     const passEncoder = commandEncoder.beginRenderPass({
+      label: "render pass",
       colorAttachments: [
         {
           view: this.colorTextureView,

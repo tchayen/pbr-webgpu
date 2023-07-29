@@ -160,6 +160,7 @@ export function getBRDFConvolutionLUT(device: GPUDevice, size: number) {
 
   const commandEncoder = device.createCommandEncoder();
   const passEncoder = commandEncoder.beginRenderPass({
+    label: "BRDF convolution",
     colorAttachments: [
       {
         view: texture.createView(),

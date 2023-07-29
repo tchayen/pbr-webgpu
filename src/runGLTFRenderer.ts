@@ -46,7 +46,9 @@ export async function setupRendering() {
   const entry = navigator.gpu;
   invariant(entry, "WebGPU is not supported in this browser.");
 
-  const adapter = await entry.requestAdapter();
+  const adapter = await entry.requestAdapter({
+    // powerPreference: "high-performance",
+  });
   invariant(adapter, "No GPU found on this system.");
 
   const device = await adapter.requestDevice({ label: "device" });

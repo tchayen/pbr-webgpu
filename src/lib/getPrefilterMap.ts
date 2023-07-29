@@ -215,6 +215,7 @@ fn main(@location(0) worldPosition: vec4f) -> @location(0) vec4f {
         label: "prefilter map",
       });
       const passEncoder = commandEncoder.beginRenderPass({
+        label: "prefilter map",
         colorAttachments: [
           {
             view: prefilterTexture.createView({

@@ -1,6 +1,6 @@
 import { createBuffer } from "./createBuffer";
 import { Mat4 } from "./math/Mat4";
-import { HDRData, parseHDR } from "./parseHDR";
+import { HDRData } from "./parseHDR";
 import {
   cubeVertexArray,
   cubemapVertexShader,
@@ -149,6 +149,7 @@ fn main(@location(0) worldPosition: vec4f) -> @location(0) vec4f {
   for (let i = 0; i < 6; i++) {
     const commandEncoder = device.createCommandEncoder();
     const passEncoder = commandEncoder.beginRenderPass({
+      label: "equirectangular to cubemap",
       colorAttachments: [
         {
           view: cubemapTexture.createView({
