@@ -13,10 +13,12 @@ export function createPBRShader({
   hasUVs,
   hasTangents,
   useAlphaCutoff,
+  shadowMapSize,
 }: {
   hasUVs: boolean;
   hasTangents: boolean;
   useAlphaCutoff: boolean;
+  shadowMapSize: number;
 }) {
   return wgsl/* wgsl */ `
     struct Scene {
@@ -118,7 +120,7 @@ export function createPBRShader({
 
     fn calculateShadows(shadowPosition: vec3f) -> f32 {
       var visibility = 0.0;
-      let oneOverShadowDepthTextureSize = 1.0 / 1024.0;
+      let oneOverShadowDepthTextureSize = 1.0 / ${shadowMapSize}.0;
       for (var y = -1; y <= 1; y++) {
         for (var x = -1; x <= 1; x++) {
           let offset = vec2f(vec2(x, y)) * oneOverShadowDepthTextureSize;

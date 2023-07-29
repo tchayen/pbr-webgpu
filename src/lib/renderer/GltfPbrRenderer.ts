@@ -116,6 +116,7 @@ export class GltfPbrRenderer {
   shadowDepthTexture: GPUTexture;
   shadowDepthTextureView: GPUTextureView;
   depthSampler: GPUSampler;
+
   debugTextureQuadPipeline: GPURenderPipeline;
   debugTextureQuadBindGroupLayout: GPUBindGroupLayout;
   brdfLookupBindGroup: GPUBindGroup;
@@ -479,16 +480,16 @@ export class GltfPbrRenderer {
     });
     this.colorTextureView = this.colorTexture.createView({ label: "color" });
 
-    // this.setupDebugTextureQuadPipeline(true);
-    // this.brdfLookupBindGroup = this.createTextureQuadBindGroup(
-    //   this.shadowDepthTextureView,
-    //   true,
-    // );
-    this.setupDebugTextureQuadPipeline(false);
+    this.setupDebugTextureQuadPipeline(true);
     this.brdfLookupBindGroup = this.createTextureQuadBindGroup(
-      brdfLookup.createView(),
-      false,
+      this.shadowDepthTextureView,
+      true,
     );
+    // this.setupDebugTextureQuadPipeline(false);
+    // this.brdfLookupBindGroup = this.createTextureQuadBindGroup(
+    //   brdfLookup.createView(),
+    //   false,
+    // );
 
     logTime("Finished constructor.");
   }
@@ -515,7 +516,7 @@ export class GltfPbrRenderer {
 
           output.position = vec4(positions[input.vertexIndex], 1.0, 1.0);
           output.uv = positions[input.vertexIndex] * 0.5 + 0.5;
-          // output.uv.y = output.uv.y * -1.0;
+          output.uv.y = output.uv.y * -1.0;
 
           return output;
         }
@@ -526,7 +527,7 @@ export class GltfPbrRenderer {
 
         #if ${isShadow}
         @group(0) @binding(0) var shadowTexture: texture_depth_2d;
-        @group(0) @binding(1) var shadowSampler: sampler_comparison;
+        @group(0) @binding(1) var shadowSampler: sampler;
         #else
         @group(0) @binding(0) var debugTexture: texture_2d<f32>;
         @group(0) @binding(1) var debugSampler: sampler;
@@ -535,10 +536,8 @@ export class GltfPbrRenderer {
         @fragment
         fn fragmentMain(input: FragmentInput) -> @location(0) vec4f {
           #if ${isShadow}
-          // let shadowDepth = textureSample(shadowTexture, shadowSampler, input.uv);
-          // return vec4f(shadowDepth, shadowDepth, shadowDepth, 1.0);
-          _ = textureSampleCompare(shadowTexture, shadowSampler, input.uv, 0.5);
-          return vec4f(1, 0, 0, 1);
+          let shadowDepth = textureSample(shadowTexture, shadowSampler, input.uv);
+          return vec4f(shadowDepth, shadowDepth, shadowDepth, 1.0);
           #else
           return textureSample(debugTexture, debugSampler, input.uv);
           #endif
@@ -552,12 +551,12 @@ export class GltfPbrRenderer {
         {
           binding: 0,
           visibility: GPUShaderStage.FRAGMENT,
-          texture: {},
+          texture: isShadow ? { sampleType: "depth" } : {},
         },
         {
           binding: 1,
           visibility: GPUShaderStage.FRAGMENT,
-          sampler: isShadow ? { type: "comparison" } : {},
+          sampler: {},
         },
       ],
     });
@@ -592,7 +591,7 @@ export class GltfPbrRenderer {
         },
         {
           binding: 1,
-          resource: isShadow ? this.depthSampler : this.defaultSampler,
+          resource: this.defaultSampler,
         },
       ],
     });
@@ -668,6 +667,7 @@ export class GltfPbrRenderer {
       hasUVs: boolean;
       hasTangents: boolean;
       useAlphaCutoff: boolean;
+      shadowMapSize: number;
     };
   }) {
     const key = hash(JSON.stringify(args));
@@ -713,10 +713,6 @@ export class GltfPbrRenderer {
             blend,
           },
         ],
-        // TODO: use this
-        // constants: {
-        //   shadowMapSize: this.shadowMapSize,
-        // },
       },
       primitive: {
         cullMode: args.doubleSided ? "none" : "back",
@@ -744,6 +740,7 @@ export class GltfPbrRenderer {
     hasUVs: boolean;
     hasTangents: boolean;
     useAlphaCutoff: boolean;
+    shadowMapSize: number;
   }) {
     const key = JSON.stringify(args);
 
@@ -1095,6 +1092,7 @@ export class GltfPbrRenderer {
         hasUVs: "TEXCOORD_0" in primitive.attributes,
         hasTangents: "TANGENT" in primitive.attributes,
         useAlphaCutoff: material.alphaMode == "MASK",
+        shadowMapSize: this.shadowMapSize,
       },
     });
 
@@ -1267,7 +1265,7 @@ export class GltfPbrRenderer {
     const view = this.camera.getView().invert();
 
     const lightProjection = Mat4.orthographic(-20, 20, -20, 20, 0, 100);
-    const lightPosition = new Vec3(3, 2, 1);
+    const lightPosition = new Vec3(0.25, 0.5, 1);
     const lightView = Mat4.lookAt(
       lightPosition,
       new Vec3(0, 0, 0),
@@ -1329,7 +1327,7 @@ export class GltfPbrRenderer {
     }
     renderPass.end();
 
-    if (true) {
+    if (false) {
       const debugPass = commandEncoder.beginRenderPass({
         label: "debug pass",
         colorAttachments: [
