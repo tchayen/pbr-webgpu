@@ -480,11 +480,11 @@ export class GltfPbrRenderer {
     });
     this.colorTextureView = this.colorTexture.createView({ label: "color" });
 
-    this.setupDebugTextureQuadPipeline(true);
-    this.brdfLookupBindGroup = this.createTextureQuadBindGroup(
-      this.shadowDepthTextureView,
-      true,
-    );
+    // this.setupDebugTextureQuadPipeline(true);
+    // this.brdfLookupBindGroup = this.createTextureQuadBindGroup(
+    //   this.shadowDepthTextureView,
+    //   true,
+    // );
     // this.setupDebugTextureQuadPipeline(false);
     // this.brdfLookupBindGroup = this.createTextureQuadBindGroup(
     //   brdfLookup.createView(),
@@ -580,7 +580,7 @@ export class GltfPbrRenderer {
     });
   }
 
-  createTextureQuadBindGroup(textureView: GPUTextureView, isShadow: boolean) {
+  createTextureQuadBindGroup(textureView: GPUTextureView) {
     return this.device.createBindGroup({
       label: "debug texture",
       layout: this.debugTextureQuadBindGroupLayout,

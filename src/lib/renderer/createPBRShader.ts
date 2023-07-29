@@ -124,7 +124,12 @@ export function createPBRShader({
       for (var y = -1; y <= 1; y++) {
         for (var x = -1; x <= 1; x++) {
           let offset = vec2f(vec2(x, y)) * oneOverShadowDepthTextureSize;
-          visibility += textureSampleCompare(shadowMap, shadowSampler, shadowPosition.xy + offset, shadowPosition.z - 0.007);
+          visibility += textureSampleCompare(
+            shadowMap,
+            shadowSampler,
+            shadowPosition.xy + offset,
+            shadowPosition.z - 0.005
+          );
         }
       }
       visibility /= 9.0;

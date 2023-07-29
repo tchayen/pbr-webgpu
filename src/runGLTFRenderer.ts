@@ -17,7 +17,7 @@ const config = {
   brdfLutSize: 512,
   roughnessLevels: 5,
   sampleCount: 4,
-  shadowMapSize: 2048,
+  shadowMapSize: 4096,
 };
 
 export async function setupRendering() {
