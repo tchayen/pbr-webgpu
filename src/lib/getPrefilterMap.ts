@@ -41,7 +41,7 @@ export function getPrefilterMap(
   // Like `cubemapVertexShader` but with roughness.
   const vertexShader = /* wgsl */ `
 struct VSOut {
-  @builtin(position) Position: vec4f,
+  @builtin(position) position: vec4f,
   @location(0) worldPosition: vec4f,
 };
 
@@ -55,7 +55,7 @@ struct Uniforms {
 @vertex
 fn main(@location(0) position: vec4f) -> VSOut {
   var output: VSOut;
-  output.Position = uniforms.modelViewProjectionMatrix * position;
+  output.position = uniforms.modelViewProjectionMatrix * position;
   output.worldPosition = position;
   return output;
 }

@@ -56,24 +56,24 @@ export function renderToCubemap(device: GPUDevice, hdr: HDRData, size: number) {
   const depthTextureView = depthTexture.createView();
 
   const fragmentShader = /* wgsl */ `
-@group(0) @binding(1) var ourTexture: texture_2d<f32>;
-@group(0) @binding(2) var ourSampler: sampler;
+    @group(0) @binding(1) var ourTexture: texture_2d<f32>;
+    @group(0) @binding(2) var ourSampler: sampler;
 
-const invAtan = vec2f(0.1591, 0.3183);
+    const inverseAtan = vec2f(0.1591, 0.3183);
 
-fn sampleSphericalMap(v: vec3f) -> vec2f {
-  var uv = vec2f(atan2(v.z, v.x), asin(v.y));
-  uv *= invAtan;
-  uv += 0.5;
-  return uv;
-}
+    fn sampleSphericalMap(v: vec3f) -> vec2f {
+      var uv = vec2f(atan2(v.z, v.x), asin(v.y));
+      uv *= inverseAtan;
+      uv += 0.5;
+      return uv;
+    }
 
-@fragment
-fn main(@location(0) worldPosition: vec4f) -> @location(0) vec4f {
-  let uv = sampleSphericalMap(normalize(worldPosition.xyz));
-  var color = textureSample(ourTexture, ourSampler, uv).rgb;
-  return vec4f(color, 1);
-}
+    @fragment
+    fn main(@location(0) worldPosition: vec4f) -> @location(0) vec4f {
+      let uv = sampleSphericalMap(normalize(worldPosition.xyz));
+      var color = textureSample(ourTexture, ourSampler, uv).rgb;
+      return vec4f(color, 1);
+    }
 `;
 
   const pipelinePipeline = device.createRenderPipeline({

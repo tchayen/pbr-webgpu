@@ -22,7 +22,7 @@ const config = {
 
 export async function setupRendering() {
   const [glb, hdri] = await Promise.all(
-    ["/assets/scene5.glb", "/assets/venice_sunset_1k.hdr"].map((url) =>
+    ["/assets/helmet.glb", "/assets/venice_sunset_1k.hdr"].map((url) =>
       fetch(url).then((response) => response.arrayBuffer()),
     ),
   );

@@ -139,7 +139,10 @@ export function createPBRShader({
 
     @fragment
     fn fragmentMain(input: VertexOutput) -> @location(0) vec4f {
-      let visibility = calculateShadows(input.shadowPosition);
+      // Temporarily turn off shadows
+      var visibility = calculateShadows(input.shadowPosition);
+      visibility = 1;
+
       let baseColor = textureSample(albedoTexture, albedoSampler, input.uv) * material.baseColorFactor;
 
       #if ${useAlphaCutoff}
@@ -221,9 +224,6 @@ export function createPBRShader({
 
       let ambient = (kD * diffuse + specular) * ao;
 
-      if (visibility < 0.5) {
-        return vec4f(ambient, 1.0);
-      }
       var color = ambient + lo + emissive;
       color = toneMapping(color);
       color = pow(color, vec3f(1.0 / 2.2));

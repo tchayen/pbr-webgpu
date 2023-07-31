@@ -25,6 +25,11 @@ import { hash } from "../hash";
 import { createPBRShader } from "./createPbrShader";
 import { wgsl } from "../wgslPreprocessor";
 import { Vec3 } from "../math/Vec3";
+import { createBuffer } from "../createBuffer";
+import { cubeVertexArray } from "../cubemapShared";
+import { toneMappings } from "../pbrShaderFunctions";
+
+const toneMappingFunction = toneMappings.aces;
 
 type Material = {
   bindGroup: GPUBindGroup;
@@ -120,6 +125,12 @@ export class GltfPbrRenderer {
   debugTextureQuadPipeline: GPURenderPipeline;
   debugTextureQuadBindGroupLayout: GPUBindGroupLayout;
   brdfLookupBindGroup: GPUBindGroup;
+
+  skyboxPipeline: GPURenderPipeline;
+  skyboxBindGroupLayout: GPUBindGroupLayout;
+  skyboxBindGroup: GPUBindGroup;
+  cubemapUniformBuffer: GPUBuffer;
+  cubemapVerticesBuffer: GPUBuffer;
 
   constructor(
     private device: GPUDevice,
@@ -400,7 +411,10 @@ export class GltfPbrRenderer {
 
     instanceBuffer.unmap();
 
-    this.depthSampler = this.device.createSampler({ compare: "less" });
+    this.depthSampler = this.device.createSampler({
+      compare: "less",
+      magFilter: "linear",
+    });
 
     this.bindGroups = {
       scene: this.device.createBindGroup({
@@ -491,6 +505,8 @@ export class GltfPbrRenderer {
     //   false,
     // );
 
+    this.setupSkyboxPipeline();
+
     logTime("Finished constructor.");
   }
 
@@ -570,6 +586,140 @@ export class GltfPbrRenderer {
       vertex: {
         module,
         entryPoint: "vertexMain",
+      },
+      fragment: {
+        module,
+        entryPoint: "fragmentMain",
+        targets: [{ format: navigator.gpu.getPreferredCanvasFormat() }],
+      },
+      multisample: { count: this.sampleCount },
+    });
+  }
+
+  setupSkyboxPipeline() {
+    this.cubemapVerticesBuffer = createBuffer(
+      this.device,
+      cubeVertexArray,
+      GPUBufferUsage.VERTEX,
+    );
+
+    this.cubemapUniformBuffer = this.device.createBuffer({
+      label: "cubemap uniform",
+      size: 64 * Float32Array.BYTES_PER_ELEMENT,
+      usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
+    });
+
+    this.skyboxBindGroupLayout = this.device.createBindGroupLayout({
+      label: "skybox",
+      entries: [
+        {
+          binding: 0,
+          visibility: GPUShaderStage.FRAGMENT,
+          texture: { viewDimension: "cube" },
+        },
+        {
+          binding: 1,
+          visibility: GPUShaderStage.FRAGMENT,
+          sampler: {},
+        },
+        {
+          binding: 2,
+          visibility: GPUShaderStage.VERTEX,
+          buffer: {},
+        },
+      ],
+    });
+
+    this.skyboxBindGroup = this.device.createBindGroup({
+      label: "skybox",
+      layout: this.skyboxBindGroupLayout,
+      entries: [
+        {
+          binding: 0,
+          resource: this.ibl.irradianceMap.createView({ dimension: "cube" }),
+        },
+        {
+          binding: 1,
+          resource: this.defaultSampler,
+        },
+        {
+          binding: 2,
+          resource: { buffer: this.cubemapUniformBuffer },
+        },
+      ],
+    });
+
+    const module = this.device.createShaderModule({
+      label: "skybox",
+      code: wgsl/* wgsl */ `
+      struct Uniforms {
+        view: mat4x4f,
+        projection: mat4x4f,
+      }
+
+      @group(0) @binding(0) var skyboxTexture: texture_cube<f32>;
+      @group(0) @binding(1) var skyboxSampler: sampler;
+      @group(0) @binding(2) var<uniform> uniforms: Uniforms;
+
+      struct VertexOutput {
+        @builtin(position) position: vec4f,
+        @location(0) fragmentPosition: vec4f,
+      }
+
+      @vertex
+      fn vertexMain(@location(0) position: vec4f) -> VertexOutput {
+        var output: VertexOutput;
+
+        var copy = uniforms.view;
+        // Reset
+        copy[3][0] = 0.0;
+        copy[3][1] = 0.0;
+        copy[3][2] = 0.0;
+
+        output.position = (uniforms.projection * copy * position).xyww;
+        output.fragmentPosition = 0.5 * (position + vec4(1.0, 1.0, 1.0, 1.0));
+        return output;
+      }
+
+      ${toneMappingFunction}
+
+      @fragment
+      fn fragmentMain(@location(0) fragmentPosition: vec4f) -> @location(0) vec4f {
+        var cubemapVec = fragmentPosition.xyz - vec3(0.5);
+        var color = textureSample(skyboxTexture, skyboxSampler, cubemapVec).rgb;
+        color = toneMapping(color);
+        color = pow(color, vec3f(1.0 / 2.2));
+        return vec4f(color, 1);
+      }
+          `,
+    });
+
+    this.skyboxPipeline = this.device.createRenderPipeline({
+      label: "skybox",
+      layout: this.device.createPipelineLayout({
+        label: "skybox",
+        bindGroupLayouts: [this.skyboxBindGroupLayout],
+      }),
+      vertex: {
+        module,
+        buffers: [
+          {
+            arrayStride: 4 * Float32Array.BYTES_PER_ELEMENT,
+            attributes: [
+              {
+                shaderLocation: 0,
+                offset: 0,
+                format: "float32x4",
+              },
+            ],
+          },
+        ],
+        entryPoint: "vertexMain",
+      },
+      depthStencil: {
+        depthWriteEnabled: true,
+        depthCompare: "less-equal",
+        format: "depth24plus",
       },
       fragment: {
         module,
@@ -1326,6 +1476,37 @@ export class GltfPbrRenderer {
       }
     }
     renderPass.end();
+
+    const skyboxPass = commandEncoder.beginRenderPass({
+      label: "skybox",
+      colorAttachments: [
+        {
+          view: this.colorTextureView,
+          resolveTarget: this.context.getCurrentTexture().createView(),
+          clearValue: { r: 0, g: 0, b: 0, a: 1 },
+          loadOp: "load",
+          storeOp: "store",
+        },
+      ],
+      depthStencilAttachment: {
+        view: this.depthTextureView,
+        depthClearValue: 1,
+        depthLoadOp: "load",
+        depthStoreOp: "store",
+      },
+    });
+
+    this.device.queue.writeBuffer(
+      this.cubemapUniformBuffer,
+      0,
+      new Float32Array([...view.data, ...projection.data].flat()).buffer,
+    );
+
+    skyboxPass.setPipeline(this.skyboxPipeline);
+    skyboxPass.setVertexBuffer(0, this.cubemapVerticesBuffer);
+    skyboxPass.setBindGroup(0, this.skyboxBindGroup);
+    skyboxPass.draw(36);
+    skyboxPass.end();
 
     if (false) {
       const debugPass = commandEncoder.beginRenderPass({
