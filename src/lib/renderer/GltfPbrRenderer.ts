@@ -138,6 +138,7 @@ export class GltfPbrRenderer {
     private canvas: HTMLCanvasElement,
     private context: GPUCanvasContext,
     textures: GPUTexture[],
+    private cubemapTexture: GPUTexture,
     irradianceMap: GPUTexture,
     prefilterMap: GPUTexture,
     brdfLookup: GPUTexture,
@@ -637,6 +638,7 @@ export class GltfPbrRenderer {
         {
           binding: 0,
           resource: this.ibl.irradianceMap.createView({ dimension: "cube" }),
+          // resource: this.cubemapTexture.createView({ dimension: "cube" }),
         },
         {
           binding: 1,

@@ -22,7 +22,7 @@ const config = {
 
 export async function setupRendering() {
   const [glb, hdri] = await Promise.all(
-    ["/assets/helmet.glb", "/assets/venice_sunset_1k.hdr"].map((url) =>
+    ["/assets/helmet-flipped.glb", "/assets/venice_sunset_1k.hdr"].map((url) =>
       fetch(url).then((response) => response.arrayBuffer()),
     ),
   );
@@ -101,6 +101,7 @@ export async function setupRendering() {
     canvas,
     context,
     textures,
+    cubemapTexture,
     irradianceMap,
     prefilterMap,
     brdfLookup,
