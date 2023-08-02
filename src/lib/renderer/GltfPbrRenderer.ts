@@ -28,6 +28,7 @@ import { Vec3 } from "../math/Vec3";
 import { createBuffer } from "../createBuffer";
 import { cubeVertexArray } from "../cubemapShared";
 import { toneMappings } from "../pbrShaderFunctions";
+import { DEBUGGING_ON } from "../../main";
 
 const toneMappingFunction = toneMappings.aces;
 
@@ -122,15 +123,19 @@ export class GltfPbrRenderer {
   shadowDepthTextureView: GPUTextureView;
   depthSampler: GPUSampler;
 
-  debugTextureQuadPipeline: GPURenderPipeline;
-  debugTextureQuadBindGroupLayout: GPUBindGroupLayout;
-  brdfLookupBindGroup: GPUBindGroup;
+  debug!: {
+    pipeline: GPURenderPipeline;
+    bindGroupLayout: GPUBindGroupLayout;
+    bindGroup: GPUBindGroup;
+  };
 
-  skyboxPipeline: GPURenderPipeline;
-  skyboxBindGroupLayout: GPUBindGroupLayout;
-  skyboxBindGroup: GPUBindGroup;
-  cubemapUniformBuffer: GPUBuffer;
-  cubemapVerticesBuffer: GPUBuffer;
+  skybox!: {
+    pipeline: GPURenderPipeline;
+    bindGroupLayout: GPUBindGroupLayout;
+    bindGroup: GPUBindGroup;
+    cubemapUniformBuffer: GPUBuffer;
+    cubemapVerticesBuffer: GPUBuffer;
+  };
 
   constructor(
     private device: GPUDevice,
@@ -146,6 +151,11 @@ export class GltfPbrRenderer {
     private shadowMapSize: number,
   ) {
     this.render = this.render.bind(this);
+
+    // @ts-ignore
+    this.debug = {};
+    // @ts-ignore
+    this.skybox = {};
 
     this.ibl = {
       irradianceMap,
@@ -495,16 +505,16 @@ export class GltfPbrRenderer {
     });
     this.colorTextureView = this.colorTexture.createView({ label: "color" });
 
-    // this.setupDebugTextureQuadPipeline(true);
-    // this.brdfLookupBindGroup = this.createTextureQuadBindGroup(
-    //   this.shadowDepthTextureView,
-    //   true,
-    // );
-    // this.setupDebugTextureQuadPipeline(false);
-    // this.brdfLookupBindGroup = this.createTextureQuadBindGroup(
-    //   brdfLookup.createView(),
-    //   false,
-    // );
+    if (false) {
+      this.setupDebugTextureQuadPipeline(true);
+      this.debug.bindGroup = this.createTextureQuadBindGroup(
+        this.shadowDepthTextureView,
+      );
+      this.setupDebugTextureQuadPipeline(false);
+      this.debug.bindGroup = this.createTextureQuadBindGroup(
+        brdfLookup.createView(),
+      );
+    }
 
     this.setupSkyboxPipeline();
 
@@ -562,7 +572,7 @@ export class GltfPbrRenderer {
       `,
     });
 
-    this.debugTextureQuadBindGroupLayout = this.device.createBindGroupLayout({
+    this.debug.bindGroupLayout = this.device.createBindGroupLayout({
       label: "debug texture",
       entries: [
         {
@@ -578,11 +588,11 @@ export class GltfPbrRenderer {
       ],
     });
 
-    this.debugTextureQuadPipeline = this.device.createRenderPipeline({
+    this.debug.pipeline = this.device.createRenderPipeline({
       label: "debug texture quad",
       layout: this.device.createPipelineLayout({
         label: "glTF scene",
-        bindGroupLayouts: [this.debugTextureQuadBindGroupLayout],
+        bindGroupLayouts: [this.debug.bindGroupLayout],
       }),
       vertex: {
         module,
@@ -598,19 +608,19 @@ export class GltfPbrRenderer {
   }
 
   setupSkyboxPipeline() {
-    this.cubemapVerticesBuffer = createBuffer(
+    this.skybox.cubemapVerticesBuffer = createBuffer(
       this.device,
       cubeVertexArray,
       GPUBufferUsage.VERTEX,
     );
 
-    this.cubemapUniformBuffer = this.device.createBuffer({
+    this.skybox.cubemapUniformBuffer = this.device.createBuffer({
       label: "cubemap uniform",
       size: 64 * Float32Array.BYTES_PER_ELEMENT,
       usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
     });
 
-    this.skyboxBindGroupLayout = this.device.createBindGroupLayout({
+    this.skybox.bindGroupLayout = this.device.createBindGroupLayout({
       label: "skybox",
       entries: [
         {
@@ -631,9 +641,9 @@ export class GltfPbrRenderer {
       ],
     });
 
-    this.skyboxBindGroup = this.device.createBindGroup({
+    this.skybox.bindGroup = this.device.createBindGroup({
       label: "skybox",
-      layout: this.skyboxBindGroupLayout,
+      layout: this.skybox.bindGroupLayout,
       entries: [
         {
           binding: 0,
@@ -646,7 +656,7 @@ export class GltfPbrRenderer {
         },
         {
           binding: 2,
-          resource: { buffer: this.cubemapUniformBuffer },
+          resource: { buffer: this.skybox.cubemapUniformBuffer },
         },
       ],
     });
@@ -696,11 +706,11 @@ export class GltfPbrRenderer {
           `,
     });
 
-    this.skyboxPipeline = this.device.createRenderPipeline({
+    this.skybox.pipeline = this.device.createRenderPipeline({
       label: "skybox",
       layout: this.device.createPipelineLayout({
         label: "skybox",
-        bindGroupLayouts: [this.skyboxBindGroupLayout],
+        bindGroupLayouts: [this.skybox.bindGroupLayout],
       }),
       vertex: {
         module,
@@ -735,7 +745,7 @@ export class GltfPbrRenderer {
   createTextureQuadBindGroup(textureView: GPUTextureView) {
     return this.device.createBindGroup({
       label: "debug texture",
-      layout: this.debugTextureQuadBindGroupLayout,
+      layout: this.debug.bindGroupLayout,
       entries: [
         {
           binding: 0,
@@ -846,7 +856,9 @@ export class GltfPbrRenderer {
 
     const module = this.getShaderModule(args.shaderParameters);
 
-    console.log(args);
+    if (DEBUGGING_ON) {
+      console.log(args);
+    }
 
     const pipeline = this.device.createRenderPipeline({
       label: "glTF scene",
@@ -1499,14 +1511,14 @@ export class GltfPbrRenderer {
     });
 
     this.device.queue.writeBuffer(
-      this.cubemapUniformBuffer,
+      this.skybox.cubemapUniformBuffer,
       0,
       new Float32Array([...view.data, ...projection.data].flat()).buffer,
     );
 
-    skyboxPass.setPipeline(this.skyboxPipeline);
-    skyboxPass.setVertexBuffer(0, this.cubemapVerticesBuffer);
-    skyboxPass.setBindGroup(0, this.skyboxBindGroup);
+    skyboxPass.setPipeline(this.skybox.pipeline);
+    skyboxPass.setVertexBuffer(0, this.skybox.cubemapVerticesBuffer);
+    skyboxPass.setBindGroup(0, this.skybox.bindGroup);
     skyboxPass.draw(36);
     skyboxPass.end();
 
@@ -1524,8 +1536,8 @@ export class GltfPbrRenderer {
         ],
       });
 
-      debugPass.setPipeline(this.debugTextureQuadPipeline);
-      debugPass.setBindGroup(0, this.brdfLookupBindGroup);
+      debugPass.setPipeline(this.debug.pipeline);
+      debugPass.setBindGroup(0, this.debug.bindGroup);
       debugPass.draw(3);
       debugPass.end();
     }

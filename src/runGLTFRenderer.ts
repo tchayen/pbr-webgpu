@@ -9,6 +9,7 @@ import { getBRDFConvolutionLUT } from "./lib/getBRDFconvolution";
 import { GltfPbrRenderer } from "./lib/renderer/GltfPbrRenderer";
 import { parseHDR } from "./lib/parseHDR";
 import { logTime } from "./log";
+import { DEBUGGING_ON } from "./main";
 
 const config = {
   cubemapSize: 1024,
@@ -29,7 +30,9 @@ export async function setupRendering() {
   logTime("Downloaded GLB.");
 
   const gltf = readGlb(glb);
-  console.log(gltf);
+  if (DEBUGGING_ON) {
+    console.log(gltf);
+  }
 
   const canvas = document.createElement("canvas");
   canvas.width = window.innerWidth * window.devicePixelRatio;
@@ -115,5 +118,8 @@ export async function setupRendering() {
   }
 
   render();
-  console.log(renderer);
+
+  if (DEBUGGING_ON) {
+    console.log(renderer);
+  }
 }
