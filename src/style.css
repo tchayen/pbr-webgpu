@@ -20,6 +20,7 @@ body {
 
 :root {
   font-family: "Inter", sans-serif;
+  font-feature-settings: "tnum", "zero";
 }
 
 * {
