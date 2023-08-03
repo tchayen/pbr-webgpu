@@ -1,37 +1,39 @@
-import React, { ComponentProps } from "react";
-import * as CollapsiblePrimitive from "@radix-ui/react-collapsible";
+import React, { ComponentProps, ReactNode } from "react";
+import * as Accordion from "@radix-ui/react-accordion";
 
 type WidgetProps = {
-  title: string;
+  title: ReactNode;
 };
 
 export function Widget({
   title,
   children,
   ...rest
-}: WidgetProps & ComponentProps<typeof CollapsiblePrimitive.Root>) {
+}: WidgetProps & ComponentProps<typeof Accordion.Item>) {
   return (
-    <CollapsiblePrimitive.Root className="w-80" defaultOpen {...rest}>
-      <CollapsiblePrimitive.Trigger className="w-full flex items-center justify-between px-3 h-7 bg-slatedark6">
-        <span className="text-sm text-slatedark12 font-medium">{title}</span>
-        <svg
-          width="16"
-          height="16"
-          viewBox="0 0 16 16"
-          fill="none"
-          xmlns="http://www.w3.org/2000/svg"
+    <Accordion.Item {...rest}>
+      <Accordion.Header>
+        <Accordion.Trigger className="flex h-7 w-full items-center justify-between border-t border-t-slatedark8 bg-slatedark6 px-3 outline-none focus:ring-1 focus:ring-inset focus:ring-bluedark8">
+          <span className="text-sm text-slatedark12">{title}</span>
+          <svg
+            width="16"
+            height="16"
+            viewBox="0 0 16 16"
+            fill="none"
+            xmlns="http://www.w3.org/2000/svg"
+          >
+            <path d="M0.5 5.5L8 12L15.5 5.5" stroke="#6B7176" />
+          </svg>
+        </Accordion.Trigger>
+      </Accordion.Header>
+      <Accordion.Content className="overflow-hidden p-3 data-[state=closed]:animate-slide-up data-[state=open]:animate-slide-down">
+        <div
+          className="grid items-center gap-2"
+          style={{ gridTemplateColumns: "min-content auto" }}
         >
-          <path d="M0.5 5.5L8 12L15.5 5.5" stroke="#6B7176" />
-        </svg>
-      </CollapsiblePrimitive.Trigger>
-      <CollapsiblePrimitive.Content
-        className="grid data-[state=closed]:p-0 items-center gap-2 p-3"
-        style={{
-          gridTemplateColumns: "min-content auto",
-        }}
-      >
-        {children}
-      </CollapsiblePrimitive.Content>
-    </CollapsiblePrimitive.Root>
+          {children}
+        </div>
+      </Accordion.Content>
+    </Accordion.Item>
   );
 }

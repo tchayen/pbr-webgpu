@@ -14,7 +14,7 @@ export function Item({ value, children }: RadioGroupItemProps) {
   return (
     <RadioGroupPrimitive.Item
       value={value}
-      className="hover:bg-slatedark7 flex-1 px-3 bg-slatedark6 text-slatedark12 text-sm data-[state=checked]:bg-bluedark8 first:rounded-l-[4px] last:rounded-r-[4px]"
+      className="flex-1 bg-slatedark6 px-3 text-sm text-slatedark12 outline-none first:rounded-l-[4px] last:rounded-r-[4px] hover:bg-slatedark7 data-[state=checked]:bg-bluedark8"
     >
       {children}
     </RadioGroupPrimitive.Item>

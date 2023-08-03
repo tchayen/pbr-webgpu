@@ -7,7 +7,16 @@ import { ComponentProps } from "react";
 
 export const Root = SelectPrimitive.Root;
 export const Group = SelectPrimitive.Group;
-export const Value = SelectPrimitive.Value;
+
+export function Value({
+  ...props
+}: ComponentProps<typeof SelectPrimitive.Value>) {
+  return (
+    <span className="text-sm text-slatedark12 placeholder:text-slatedark10">
+      <SelectPrimitive.Value {...props} />
+    </span>
+  );
+}
 
 export function Trigger({
   className,
@@ -17,7 +26,7 @@ export function Trigger({
   return (
     <SelectPrimitive.Trigger
       className={twMerge(
-        "flex h-7 items-center justify-between rounded-[4px] bg-slatedark1 px-3 py-2 text-sm text-slatedark12 placeholder:text-slatedark10 focus:ring-1 focus:ring-bluedark8 focus:outline-none disabled:cursor-not-allowed disabled:opacity-50 focus:ring-offset-0",
+        "flex h-7 items-center justify-between rounded-[4px] bg-slatedark1 px-3 py-2 focus:outline-none focus:ring-1 focus:ring-bluedark8 focus:ring-offset-0 disabled:cursor-not-allowed disabled:opacity-50",
         className,
       )}
       {...props}
@@ -47,7 +56,7 @@ export function Content({
     <SelectPrimitive.Portal>
       <SelectPrimitive.Content
         className={twMerge(
-          "data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 data-[side=bottom]:slide-in-from-top-2 data-[side=left]:slide-in-from-right-2 data-[side=right]:slide-in-from-left-2 data-[side=top]:slide-in-from-bottom-2 relative z-50 min-w-[8rem] overflow-hidden rounded-[4px] bg-slatedark1 text-slatedark12 shadow-sm data-[side=bottom]:translate-y-1 data-[side=left]:-translate-x-1 data-[side=right]:translate-x-1 data-[side=top]:-translate-y-1",
+          "relative z-50 min-w-[8rem] overflow-hidden rounded-[4px] bg-slatedark1 text-slatedark12 shadow-sm data-[side=bottom]:translate-y-1 data-[side=left]:-translate-x-1 data-[side=right]:translate-x-1 data-[side=top]:-translate-y-1 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 data-[side=bottom]:slide-in-from-top-2 data-[side=left]:slide-in-from-right-2 data-[side=right]:slide-in-from-left-2 data-[side=top]:slide-in-from-bottom-2",
           className,
         )}
         position="popper"
@@ -86,7 +95,7 @@ export function Item({
   return (
     <SelectPrimitive.Item
       className={twMerge(
-        "data-[state=checked]:bg-bluedark8 flex justify-between text-slatedark12 h-7 relative w-full cursor-default select-none items-center px-3 text-sm outline-none focus:bg-slatedark4 data-[disabled]:pointer-events-none data-[disabled]:opacity-50",
+        "relative flex h-7 w-full cursor-default select-none items-center justify-between px-3 text-sm text-slatedark12 outline-none focus:bg-slatedark4 data-[disabled]:pointer-events-none data-[state=checked]:bg-bluedark8 data-[disabled]:opacity-50",
         className,
       )}
       {...props}

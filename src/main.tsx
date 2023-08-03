@@ -13,6 +13,7 @@ import { Checkbox } from "./ui/Checkbox";
 import * as RadioGroup from "./ui/RadioGroup";
 import { Widget } from "./ui/Widget";
 import { Label } from "./ui/Label";
+import * as Accordion from "@radix-ui/react-accordion";
 
 // // const canvas = document.createElement("canvas");
 // // canvas.width = window.innerWidth * window.devicePixelRatio;
@@ -75,8 +76,12 @@ function App() {
         width={window.innerWidth}
         height={window.innerHeight}
       /> */}
-      <div className="absolute bottom-0 right-0 h-full bg-slatedark4">
-        <Widget title="Configuration" defaultOpen={false}>
+      <Accordion.Root
+        type="multiple"
+        defaultValue={["scene", "node", "material"]}
+        className="absolute bottom-0 right-0 h-full w-80 bg-slatedark4"
+      >
+        <Widget value="configuration" title="Configuration">
           <Label>Irradiance map size</Label>
           <Input value="32" />
           <Label>Prefilter map size</Label>
@@ -88,7 +93,7 @@ function App() {
           <Label>Shadow map size</Label>
           <Input value="4096" />
         </Widget>
-        <Widget title="Scene">
+        <Widget value="scene" title="Scene">
           <Label>Format</Label>
           <RadioGroup.Root defaultValue="one">
             <RadioGroup.Item value="one">sRGB</RadioGroup.Item>
@@ -130,23 +135,42 @@ function App() {
             </Select.Content>
           </Select.Root>
         </Widget>
-        <Widget title="Node">
+        <Widget value="node" title="Node">
           <Label>Cast shadow</Label>
           <Checkbox value="on" />
         </Widget>
-        <Widget title="Material">
+        <Widget value="material" title="Material">
           <Label>Albedo</Label>
-          <div className="rounded-[4px] h-7 w-14 bg-indigo-300" />
+          <div className="h-7 w-14 rounded-[4px] bg-indigo-300" />
           <Label>Normal</Label>
-          <div className="rounded-[4px] h-7 w-14 bg-indigo-300" />
+          <div className="h-7 w-14 rounded-[4px] bg-indigo-300" />
           <Label>Roughness/Metallic</Label>
-          <div className="rounded-[4px] h-7 w-14 bg-indigo-300" />
+          <div className="h-7 w-14 rounded-[4px] bg-indigo-300" />
           <Label>AO</Label>
-          <div className="rounded-[4px] h-7 w-14 bg-indigo-300" />
+          <div className="h-7 w-14 rounded-[4px] bg-indigo-300" />
           <Label>Emissive</Label>
-          <div className="rounded-[4px] h-7 w-14 bg-indigo-300" />
+          <div className="h-7 w-14 rounded-[4px] bg-indigo-300" />
         </Widget>
-      </div>
+        <Widget value="debug" title="Debug">
+          <Label>Render specific texture</Label>
+          <Checkbox value="on" />
+          <Label>Material texture</Label>
+          <Select.Root value="roughnessMetallic">
+            <Select.Trigger>
+              <Select.Value />
+            </Select.Trigger>
+            <Select.Content>
+              <Select.Item value="albedo">Albedo</Select.Item>
+              <Select.Item value="normal">Normal</Select.Item>
+              <Select.Item value="roughnessMetallic">
+                Roughness/Metallic
+              </Select.Item>
+              <Select.Item value="ao">AO</Select.Item>
+              <Select.Item value="emissive">Emissive</Select.Item>
+            </Select.Content>
+          </Select.Root>
+        </Widget>
+      </Accordion.Root>
     </>
   );
 }

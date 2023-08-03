@@ -22,7 +22,7 @@ import {
 } from "./utils";
 import { logTime } from "../../log";
 import { hash } from "../hash";
-import { createPBRShader } from "./createPbrShader";
+import { createPBRShader } from "./createPBRShader";
 import { wgsl } from "../wgslPreprocessor";
 import { Vec3 } from "../math/Vec3";
 import { createBuffer } from "../createBuffer";
