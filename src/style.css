@@ -10,6 +10,7 @@ body {
   margin: 0;
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
+  background-color: hsl(200 7% 8.8%);
 }
 
 html,
@@ -20,7 +21,7 @@ body {
 
 :root {
   font-family: "Inter", sans-serif;
-  font-feature-settings: "tnum", "zero";
+  /* font-feature-settings: "tnum", "zero"; */
 }
 
 * {
@@ -31,4 +32,10 @@ body {
   :root {
     font-family: "Inter var", sans-serif;
   }
+}
+
+canvas {
+  margin: 2px;
+  border-radius: 4px;
+  overflow: hidden;
 }

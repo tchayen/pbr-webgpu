@@ -3,9 +3,7 @@ import { setupRendering } from "./runGLTFRenderer";
 
 export const DEBUGGING_ON = true;
 
-import React, { useEffect, useRef, useState } from "react";
-import { Renderer } from "./Renderer";
-import { TexturedRenderer } from "./TexturedRenderer";
+import React, { useRef, useState } from "react";
 import * as Select from "./ui/Select";
 import { createRoot } from "react-dom/client";
 import { Input } from "./ui/Input";
@@ -15,32 +13,11 @@ import { Widget } from "./ui/Widget";
 import { Label } from "./ui/Label";
 import * as Accordion from "@radix-ui/react-accordion";
 
-// // const canvas = document.createElement("canvas");
-// // canvas.width = window.innerWidth * window.devicePixelRatio;
-// // canvas.height = window.innerHeight * window.devicePixelRatio;
-// // canvas.style.width = `${window.innerWidth}px`;
-// // canvas.style.height = `${window.innerHeight}px`;
-// // document.body.appendChild(canvas);
-
-// const renderer = new TexturedRenderer();
-
-const environmentToFile = {
-  dikhololo_night_1k: "/assets/dikhololo_night_1k.hdr",
-  goegap_1k: "/assets/goegap_1k.hdr",
-  lebombo_1k: "/assets/lebombo_1k.hdr",
-  snowy_park_01_1k: "/assets/snowy_park_01_1k.hdr",
-};
-
 type ToneMapping = "reinhard" | "uncharted2" | "aces" | "lottes";
-type Environment =
-  | "dikhololo_night_1k"
-  | "goegap_1k"
-  | "lebombo_1k"
-  | "snowy_park_01_1k";
 
 function App() {
   const [toneMapping, setToneMapping] = useState<ToneMapping>("lottes");
-  const [environment, setEnvironment] = useState<Environment>("goegap_1k");
+  const [environment, setEnvironment] = useState<string>("goegap_1k");
 
   const ref = useRef<HTMLCanvasElement>(null);
 
@@ -64,6 +41,10 @@ function App() {
   //   };
   // }, [environment, toneMapping]);
 
+  if (!DEBUGGING_ON) {
+    return null;
+  }
+
   return (
     <>
       {/* <canvas
@@ -78,8 +59,8 @@ function App() {
       /> */}
       <Accordion.Root
         type="multiple"
-        defaultValue={["scene", "node", "material"]}
-        className="absolute bottom-0 right-0 h-full w-80 bg-slatedark4"
+        defaultValue={["scene", "node", "material", "debug"]}
+        className="absolute bottom-0 right-0 flex h-full w-[300px] select-none flex-col gap-0.5 bg-slatedark1 p-0.5"
       >
         <Widget value="configuration" title="Configuration">
           <Label>Irradiance map size</Label>
@@ -136,20 +117,47 @@ function App() {
           </Select.Root>
         </Widget>
         <Widget value="node" title="Node">
+          <Label>Location</Label>
+          <div className="flex items-center gap-1">
+            <Label>X</Label>
+            <Input value="0.0" />
+            <Label>Y</Label>
+            <Input value="0.0" />
+            <Label>Z</Label>
+            <Input value="0.0" />
+          </div>
+          <Label>Rotation</Label>
+          <div className="flex items-center gap-1">
+            <Label>X</Label>
+            <Input value="0.0" />
+            <Label>Y</Label>
+            <Input value="0.0" />
+            <Label>Z</Label>
+            <Input value="0.0" />
+          </div>
+          <Label>Scale</Label>
+          <div className="flex items-center gap-1">
+            <Label>X</Label>
+            <Input value="0.0" />
+            <Label>Y</Label>
+            <Input value="0.0" />
+            <Label>Z</Label>
+            <Input value="0.0" />
+          </div>
           <Label>Cast shadow</Label>
           <Checkbox value="on" />
         </Widget>
         <Widget value="material" title="Material">
           <Label>Albedo</Label>
-          <div className="h-7 w-14 rounded-[4px] bg-indigo-300" />
+          <div className="h-6 w-14 rounded-[4px] bg-indigo-300" />
           <Label>Normal</Label>
-          <div className="h-7 w-14 rounded-[4px] bg-indigo-300" />
+          <div className="h-6 w-14 rounded-[4px] bg-indigo-300" />
           <Label>Roughness/Metallic</Label>
-          <div className="h-7 w-14 rounded-[4px] bg-indigo-300" />
+          <div className="h-6 w-14 rounded-[4px] bg-indigo-300" />
           <Label>AO</Label>
-          <div className="h-7 w-14 rounded-[4px] bg-indigo-300" />
+          <div className="h-6 w-14 rounded-[4px] bg-indigo-300" />
           <Label>Emissive</Label>
-          <div className="h-7 w-14 rounded-[4px] bg-indigo-300" />
+          <div className="h-6 w-14 rounded-[4px] bg-indigo-300" />
         </Widget>
         <Widget value="debug" title="Debug">
           <Label>Render specific texture</Label>

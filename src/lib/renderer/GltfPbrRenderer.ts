@@ -505,7 +505,7 @@ export class GltfPbrRenderer {
     });
     this.colorTextureView = this.colorTexture.createView({ label: "color" });
 
-    if (false) {
+    if (true) {
       this.setupDebugTextureQuadPipeline(true);
       this.debug.bindGroup = this.createTextureQuadBindGroup(
         this.shadowDepthTextureView,
@@ -525,8 +525,9 @@ export class GltfPbrRenderer {
     const module = this.device.createShaderModule({
       label: "debug texture quad",
       code: wgsl/* wgsl */ `
-        var<private> positions: array<vec2f, 3> = array<vec2f, 3>(
-          vec2(-1.0, -1.0), vec2(-1.0, 3.0), vec2(3.0, -1.0));
+        var<private> positions: array<vec2f, 6> = array<vec2f, 6>(
+          vec2(-1.0, -1.0), vec2(-1.0, 1.0), vec2(1.0, -1.0),
+          vec2(-1.0, 1.0), vec2(1.0, 1.0), vec2(1.0, -1.0));
 
         struct VertexInput {
           @builtin(vertex_index) vertexIndex: u32
@@ -1451,6 +1452,8 @@ export class GltfPbrRenderer {
 
     this.device.queue.writeBuffer(this.sceneUniformBuffer, 0, sceneUniforms);
 
+    renderPass.setViewport(0, 0, this.canvas.width, this.canvas.height, 0, 1);
+
     renderPass.setBindGroup(0, this.bindGroups.scene);
     renderPass.setBindGroup(1, this.bindGroups.instance);
     renderPass.setBindGroup(3, this.bindGroups.pbr);
@@ -1538,7 +1541,7 @@ export class GltfPbrRenderer {
 
       debugPass.setPipeline(this.debug.pipeline);
       debugPass.setBindGroup(0, this.debug.bindGroup);
-      debugPass.draw(3);
+      debugPass.draw(6);
       debugPass.end();
     }
 

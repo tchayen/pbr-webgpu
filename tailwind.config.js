@@ -4,6 +4,9 @@ const { slate, slateDark, blue, blueDark } = require("@radix-ui/colors");
 export default {
   content: ["./index.html", "./src/**/*.{js,ts,jsx,tsx}"],
   theme: {
+    fontSize: {
+      sm: "13px",
+    },
     extend: {
       animation: {
         "slide-down": "slideDown 100ms ease-out",
