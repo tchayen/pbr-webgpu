@@ -39,3 +39,8 @@ canvas {
   border-radius: 4px;
   overflow: hidden;
 }
+
+::selection {
+  background-color: #1e55a1;
+  color: #fff;
+}

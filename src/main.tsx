@@ -128,8 +128,8 @@ function App() {
             <Label>Z</Label>
             <Input value="0.0" />
           </div>
-          <Label>Cast shadow</Label>
-          <Checkbox value="on" />
+          <Label htmlFor="cast-shadow">Cast shadow</Label>
+          <Checkbox value="on" id="cast-shadow" />
         </Widget>
         <Widget value="material" title='Material "Gold"'>
           <Label>Albedo</Label>

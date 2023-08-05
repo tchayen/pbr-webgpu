@@ -1,13 +1,9 @@
-import React, { ReactNode } from "react";
+import React, { ComponentProps } from "react";
 
-type LabelProps = {
-  children: ReactNode;
-};
-
-export function Label({ children }: LabelProps) {
+export function Label({ children }: ComponentProps<"label">) {
   return (
-    <span className="whitespace-nowrap text-sm text-slatedark9">
+    <label className="whitespace-nowrap text-sm text-slatedark9">
       {children}
-    </span>
+    </label>
   );
 }

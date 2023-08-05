@@ -2,10 +2,6 @@ import React, { useEffect, useRef, useState } from "react";
 
 const SIZE = 192;
 
-type ColorPickerProps = {
-  value: string;
-};
-
 export function ColorPicker() {
   const ref = useRef<HTMLDivElement>(null);
   const [point, setPoint] = useState({ saturation: 0, value: 0, hue: 0 });
@@ -35,14 +31,6 @@ export function ColorPicker() {
     };
   }, []);
 
-  const h = (point.hue * 360).toFixed(2);
-  const s = (point.saturation * 100).toFixed(2);
-  const v = (point.value * 100).toFixed(2);
-
-  const color = `hsb(${h}, ${s}%, ${v}%)`;
-
-  console.log(color);
-
   return (
     <div className="flex flex-col gap-2 p-2">
       <div className="relative" ref={ref} style={{ width: SIZE, height: SIZE }}>
@@ -53,7 +41,7 @@ export function ColorPicker() {
           style={{
             left: point.saturation * SIZE,
             top: point.value * SIZE,
-            background: color,
+            background: "#ff0000",
           }}
         />
       </div>
@@ -67,7 +55,7 @@ export function ColorPicker() {
       >
         <div
           className="absolute h-4 w-4 -translate-x-1/2 rounded-full border-2 border-white shadow"
-          style={{ left: point.hue * SIZE, background: color }}
+          style={{ left: point.hue * SIZE, background: "#ff0000" }}
         />
       </div>
     </div>
