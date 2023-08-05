@@ -9,17 +9,7 @@ import { getBRDFConvolutionLUT } from "./lib/getBRDFconvolution";
 import { GltfPbrRenderer } from "./lib/renderer/GltfPbrRenderer";
 import { parseHDR } from "./lib/parseHDR";
 import { logTime } from "./log";
-import { DEBUGGING_ON } from "./main";
-
-const config = {
-  cubemapSize: 1024,
-  irradianceMapSize: 32,
-  prefilterMapSize: 256,
-  brdfLutSize: 512,
-  roughnessLevels: 5,
-  sampleCount: 4,
-  shadowMapSize: 4096,
-};
+import { DEBUGGING_ON, config } from "./main";
 
 export async function setupRendering() {
   const [glb, hdri] = await Promise.all(

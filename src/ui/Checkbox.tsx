@@ -8,7 +8,7 @@ type CheckboxProps = {
 export function Checkbox({ value }: CheckboxProps) {
   return (
     <CheckboxPrimitive.Root
-      className="flex h-4 w-4 items-center justify-center rounded-sm bg-slatedark7 from-bluedark8 to-bluedark7 shadow-sm outline-none hover:bg-slatedark8 focus-visible:ring-1 focus-visible:ring-bluedark8 focus-visible:ring-offset-2 focus-visible:ring-offset-slatedark4 data-[state=checked]:bg-bluedark8 data-[state=checked]:bg-gradient-to-b"
+      className="flex h-4 w-4 items-center justify-center rounded-sm bg-slatedark7 from-bluedark8 to-bluedark7 shadow-sm outline-none hover:bg-slatedark8 focus-visible:ring-1 focus-visible:ring-bluedark8 data-[state=checked]:bg-bluedark8 data-[state=checked]:bg-gradient-to-b"
       defaultChecked
       id="c1"
     >

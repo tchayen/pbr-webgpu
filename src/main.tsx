@@ -3,7 +3,7 @@ import { setupRendering } from "./runGLTFRenderer";
 
 export const DEBUGGING_ON = true;
 
-import React, { useRef, useState } from "react";
+import React, { useState, useSyncExternalStore } from "react";
 import * as Select from "./ui/Select";
 import { createRoot } from "react-dom/client";
 import { Input } from "./ui/Input";
@@ -12,51 +12,35 @@ import * as RadioGroup from "./ui/RadioGroup";
 import { Widget } from "./ui/Widget";
 import { Label } from "./ui/Label";
 import * as Accordion from "@radix-ui/react-accordion";
+import { Popover } from "./ui/Popover";
+import { Tabs } from "./ui/Tabs";
+import { ColorPicker } from "./ui/ColorPicker";
+import { store } from "./ui/store";
 
 type ToneMapping = "reinhard" | "uncharted2" | "aces" | "lottes";
+
+export const config = {
+  cubemapSize: 1024,
+  irradianceMapSize: 32,
+  prefilterMapSize: 256,
+  brdfLutSize: 512,
+  roughnessLevels: 5,
+  sampleCount: 4,
+  shadowMapSize: 4096,
+};
 
 function App() {
   const [toneMapping, setToneMapping] = useState<ToneMapping>("lottes");
   const [environment, setEnvironment] = useState<string>("goegap_1k");
 
-  const ref = useRef<HTMLCanvasElement>(null);
-
-  // useEffect(() => {
-  //   if (!ref.current) {
-  //     return;
-  //   }
-
-  //   if (renderer.state === "ready") {
-  //     renderer.destroy();
-  //   }
-
-  //   renderer
-  //     .init(ref.current, environmentToFile[environment], toneMapping)
-  //     .then(() => {
-  //       renderer.render();
-  //     });
-
-  //   return () => {
-  //     renderer.destroy();
-  //   };
-  // }, [environment, toneMapping]);
-
   if (!DEBUGGING_ON) {
     return null;
   }
 
+  const a = useSyncExternalStore(store.subscribe, store.getSnapshot);
+
   return (
     <>
-      {/* <canvas
-        ref={ref}
-        style={{
-          width: "100%",
-          height: "100%",
-          display: "flex",
-        }}
-        width={window.innerWidth}
-        height={window.innerHeight}
-      /> */}
       <Accordion.Root
         type="multiple"
         defaultValue={["scene", "node", "material", "debug"]}
@@ -101,7 +85,7 @@ function App() {
           <Label>HDRI map</Label>
           <Select.Root
             value={environment}
-            onValueChange={(value: Environment) => setEnvironment(value)}
+            onValueChange={(value: string) => setEnvironment(value)}
           >
             <Select.Trigger>
               <Select.Value placeholder="Theme" />
@@ -116,7 +100,7 @@ function App() {
             </Select.Content>
           </Select.Root>
         </Widget>
-        <Widget value="node" title="Node">
+        <Widget value="node" title="Node (id: 2)">
           <Label>Location</Label>
           <div className="flex items-center gap-1">
             <Label>X</Label>
@@ -147,17 +131,17 @@ function App() {
           <Label>Cast shadow</Label>
           <Checkbox value="on" />
         </Widget>
-        <Widget value="material" title="Material">
+        <Widget value="material" title='Material "Gold"'>
           <Label>Albedo</Label>
-          <div className="h-6 w-14 rounded-[4px] bg-indigo-300" />
+          <Color />
           <Label>Normal</Label>
-          <div className="h-6 w-14 rounded-[4px] bg-indigo-300" />
+          <Color />
           <Label>Roughness/Metallic</Label>
-          <div className="h-6 w-14 rounded-[4px] bg-indigo-300" />
+          <Color />
           <Label>AO</Label>
-          <div className="h-6 w-14 rounded-[4px] bg-indigo-300" />
+          <Color />
           <Label>Emissive</Label>
-          <div className="h-6 w-14 rounded-[4px] bg-indigo-300" />
+          <Color />
         </Widget>
         <Widget value="debug" title="Debug">
           <Label>Render specific texture</Label>
@@ -180,6 +164,26 @@ function App() {
         </Widget>
       </Accordion.Root>
     </>
+  );
+}
+
+function Color() {
+  return (
+    <Popover
+      trigger={<div className="h-6 w-14 rounded-[4px] bg-indigo-300" />}
+      className="w-[208px]"
+      content={
+        <Tabs
+          tabs={[
+            { title: "Texture", content: "Tab 1 Content" },
+            {
+              title: "Color",
+              content: <ColorPicker />,
+            },
+          ]}
+        />
+      }
+    />
   );
 }
 
