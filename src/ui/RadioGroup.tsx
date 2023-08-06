@@ -19,7 +19,7 @@ export function Item({ value, children }: RadioGroupItemProps) {
   return (
     <RadioGroupPrimitive.Item
       value={value}
-      className="flex-1 bg-slatedark7 from-bluedark8 to-bluedark7 px-2 text-sm font-medium text-slatedark12 outline-none first:rounded-l-[4px] last:rounded-r-[4px] hover:bg-slatedark8 data-[state=checked]:bg-bluedark8 data-[state=checked]:bg-gradient-to-b"
+      className="flex-1 bg-slatedark7 px-2 text-sm font-semibold text-slatedark12 outline-none first:rounded-l-[4px] last:rounded-r-[4px] hover:bg-slatedark8 data-[state=checked]:bg-bluedark7"
     >
       {children}
     </RadioGroupPrimitive.Item>

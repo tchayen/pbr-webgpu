@@ -12,14 +12,11 @@ export function Widget({
   ...rest
 }: WidgetProps & ComponentProps<typeof Accordion.Item>) {
   return (
-    <Accordion.Item
-      {...rest}
-      className="overflow-hidden rounded-[4px] bg-slatedark4"
-    >
+    <Accordion.Item {...rest} className="overflow-hidden bg-slatedark4">
       <Accordion.Header>
-        <Accordion.Trigger className="flex h-6 w-full items-center justify-between rounded-[4px]  bg-gradient-to-b from-slatedark6 to-slatedark5 px-2 font-medium outline-none focus-visible:ring-1 focus-visible:ring-inset focus-visible:ring-bluedark8">
+        <Accordion.Trigger className="group flex h-6 w-full items-center gap-1 bg-slatedark7 px-2 font-semibold outline-none focus-visible:ring-1 focus-visible:ring-inset focus-visible:ring-bluedark8">
+          <Chevron className="ease-[cubic-bezier(0.87,_0,_0.13,_1)] transition-transform duration-100 group-data-[state=open]:-rotate-90" />
           <span className="text-sm text-slatedark12">{title}</span>
-          <Chevron />
         </Accordion.Trigger>
       </Accordion.Header>
       <Accordion.Content className="overflow-hidden p-2 pl-4 data-[state=closed]:animate-slide-up data-[state=open]:animate-slide-down">

@@ -1,8 +1,9 @@
 import React from "react";
 
-export function Chevron() {
+export function Chevron({ className }: { className?: string }) {
   return (
     <svg
+      className={className}
       width="10"
       height="8"
       viewBox="0 0 10 8"

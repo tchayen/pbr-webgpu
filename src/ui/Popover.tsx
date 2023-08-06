@@ -11,7 +11,7 @@ type PopoverProps = {
 export function Popover({ trigger, content, className }: PopoverProps) {
   return (
     <PopoverPrimitive.Root>
-      <PopoverPrimitive.Trigger>{trigger}</PopoverPrimitive.Trigger>
+      <PopoverPrimitive.Trigger asChild>{trigger}</PopoverPrimitive.Trigger>
       <PopoverPrimitive.Portal>
         <PopoverPrimitive.Content
           className={twMerge(

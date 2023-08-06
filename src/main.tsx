@@ -44,7 +44,7 @@ function App() {
       <Accordion.Root
         type="multiple"
         defaultValue={["scene", "node", "material", "debug"]}
-        className="absolute bottom-0 right-0 flex h-full w-[300px] select-none flex-col gap-0.5 bg-slatedark1 p-0.5"
+        className="absolute bottom-0 right-0 flex h-full w-[300px] select-none flex-col bg-slatedark1"
       >
         <Widget value="configuration" title="Configuration">
           <Label>Irradiance map size</Label>
@@ -170,12 +170,14 @@ function App() {
 function Color() {
   return (
     <Popover
-      trigger={<div className="h-6 w-14 rounded-[4px] bg-indigo-300" />}
-      className="w-[208px]"
+      trigger={
+        <button className="h-6 w-14 rounded-[4px] bg-indigo-300 outline-none focus:outline-none focus:ring-1 focus:ring-bluedark8" />
+      }
+      className="w-[200px]"
       content={
         <Tabs
           tabs={[
-            { title: "Texture", content: "Tab 1 Content" },
+            { title: "Texture", content: <div className="h-[280px]" /> },
             {
               title: "Color",
               content: <ColorPicker />,

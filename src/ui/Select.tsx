@@ -49,7 +49,7 @@ export function Content({
     <SelectPrimitive.Portal>
       <SelectPrimitive.Content
         className={twMerge(
-          "relative z-50 overflow-hidden rounded-[4px] bg-slatedark1 p-0.5 text-slatedark12 shadow-lg data-[side=bottom]:translate-y-1 data-[side=left]:-translate-x-1 data-[side=right]:translate-x-1 data-[side=top]:-translate-y-1 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 data-[side=bottom]:slide-in-from-top-2 data-[side=left]:slide-in-from-right-2 data-[side=right]:slide-in-from-left-2 data-[side=top]:slide-in-from-bottom-2",
+          "relative z-50 overflow-hidden rounded-[4px] bg-slatedark1 text-slatedark12 shadow-lg data-[side=bottom]:translate-y-1 data-[side=left]:-translate-x-1 data-[side=right]:translate-x-1 data-[side=top]:-translate-y-1 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 data-[side=bottom]:slide-in-from-top-2 data-[side=left]:slide-in-from-right-2 data-[side=right]:slide-in-from-left-2 data-[side=top]:slide-in-from-bottom-2",
           className,
         )}
         position="popper"
@@ -88,7 +88,7 @@ export function Item({
   return (
     <SelectPrimitive.Item
       className={twMerge(
-        "relative mb-0.5 flex h-6 w-full cursor-default select-none items-center justify-between rounded-[2px] px-2 text-sm text-slatedark12 outline-none last:mb-0 focus:bg-slatedark6 data-[disabled]:pointer-events-none data-[state=checked]:bg-bluedark8 data-[disabled]:text-slatedark9",
+        "relative flex h-6 w-full cursor-default select-none items-center justify-between px-2 text-sm text-slatedark12 outline-none last:mb-0 focus:bg-slatedark6 data-[disabled]:pointer-events-none data-[state=checked]:bg-bluedark8 data-[disabled]:text-slatedark9",
         className,
       )}
       {...props}
