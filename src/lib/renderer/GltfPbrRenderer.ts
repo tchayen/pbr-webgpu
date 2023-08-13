@@ -163,7 +163,7 @@ export class GltfPbrRenderer {
       brdfLookup,
     };
 
-    this.camera = new Camera(0.5, 1.6);
+    this.camera = new Camera(this.canvas, 0.5, 1.6);
 
     this.opaqueWhiteTexture = createSolidColorTexture(this.device, 1, 1, 1, 1);
     this.transparentBlackTexture = createSolidColorTexture(
@@ -338,6 +338,7 @@ export class GltfPbrRenderer {
     });
 
     this.samplerBRDF = device.createSampler({
+      label: "BRDF LUT",
       magFilter: "linear",
       minFilter: "linear",
       addressModeU: "clamp-to-edge",
@@ -423,6 +424,7 @@ export class GltfPbrRenderer {
     instanceBuffer.unmap();
 
     this.depthSampler = this.device.createSampler({
+      label: "depth",
       compare: "less",
       magFilter: "linear",
     });
@@ -857,9 +859,9 @@ export class GltfPbrRenderer {
 
     const module = this.getShaderModule(args.shaderParameters);
 
-    if (DEBUGGING_ON) {
-      console.log(args);
-    }
+    // if (DEBUGGING_ON) {
+    //   console.log(args);
+    // }
 
     const pipeline = this.device.createRenderPipeline({
       label: "glTF scene",

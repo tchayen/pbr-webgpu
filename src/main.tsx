@@ -15,19 +15,14 @@ import * as Accordion from "@radix-ui/react-accordion";
 import { Popover } from "./ui/Popover";
 import { Tabs } from "./ui/Tabs";
 import { ColorPicker } from "./ui/ColorPicker";
-import { store } from "./ui/store";
+import { Store } from "./ui/Store";
+import { useResizer } from "./ui/useResizer";
+import { Tree } from "./ui/Tree";
+import { List } from "./ui/List";
 
 type ToneMapping = "reinhard" | "uncharted2" | "aces" | "lottes";
 
-export const config = {
-  cubemapSize: 1024,
-  irradianceMapSize: 32,
-  prefilterMapSize: 256,
-  brdfLutSize: 512,
-  roughnessLevels: 5,
-  sampleCount: 4,
-  shadowMapSize: 4096,
-};
+const store = new Store();
 
 function App() {
   const [toneMapping, setToneMapping] = useState<ToneMapping>("lottes");
@@ -39,13 +34,30 @@ function App() {
 
   const a = useSyncExternalStore(store.subscribe, store.getSnapshot);
 
+  const { ref, width } = useResizer();
+
   return (
-    <>
+    <div className="flex h-screen">
+      <canvas
+        className="flex"
+        id="canvas"
+        style={{
+          width: `calc(100% - ${width}px)`,
+        }}
+      />
       <Accordion.Root
         type="multiple"
-        defaultValue={["scene", "node", "material", "debug"]}
-        className="absolute bottom-0 right-0 flex h-full w-[300px] select-none flex-col bg-slatedark1"
+        defaultValue={["list2", "scene", "node", "material", "debug"]}
+        className="relative flex h-full select-none flex-col overflow-y-scroll bg-slatedark4"
+        style={{ width }}
       >
+        <div
+          ref={ref}
+          className="absolute h-full w-2 -translate-x-1 cursor-col-resize"
+        ></div>
+        <Widget value="list2" title="List 2" className="p-0">
+          <List />
+        </Widget>
         <Widget value="configuration" title="Configuration">
           <Label>Irradiance map size</Label>
           <Input value="32" />
@@ -59,14 +71,14 @@ function App() {
           <Input value="4096" />
         </Widget>
         <Widget value="scene" title="Scene">
-          <Label>Format</Label>
-          <RadioGroup.Root defaultValue="one">
+          <Label htmlFor="format">Format</Label>
+          <RadioGroup.Root defaultValue="one" id="format">
             <RadioGroup.Item value="one">sRGB</RadioGroup.Item>
             <RadioGroup.Item value="two">float16</RadioGroup.Item>
             <RadioGroup.Item value="three">BGRA</RadioGroup.Item>
           </RadioGroup.Root>
-          <Label>Value</Label>
-          <Input placeholder="Test" />
+          <Label htmlFor="value">Value</Label>
+          <Input placeholder="Test" id="value" />
           <Label>Tone mapping</Label>
           <Select.Root
             value={toneMapping}
@@ -103,30 +115,30 @@ function App() {
         <Widget value="node" title="Node (id: 2)">
           <Label>Location</Label>
           <div className="flex items-center gap-1">
-            <Label>X</Label>
-            <Input value="0.0" />
-            <Label>Y</Label>
-            <Input value="0.0" />
-            <Label>Z</Label>
-            <Input value="0.0" />
+            <Label htmlFor="location-x">X</Label>
+            <Input id="location-x" value="0.0" />
+            <Label htmlFor="location-y">Y</Label>
+            <Input id="location-y" value="0.0" />
+            <Label htmlFor="location-z">Z</Label>
+            <Input id="location-z" value="0.0" />
           </div>
           <Label>Rotation</Label>
           <div className="flex items-center gap-1">
-            <Label>X</Label>
-            <Input value="0.0" />
-            <Label>Y</Label>
-            <Input value="0.0" />
-            <Label>Z</Label>
-            <Input value="0.0" />
+            <Label htmlFor="rotation-x">X</Label>
+            <Input id="rotation-x" value="0.0" />
+            <Label htmlFor="rotation-y">Y</Label>
+            <Input id="rotation-y" value="0.0" />
+            <Label htmlFor="rotation-z">Z</Label>
+            <Input id="rotation-z" value="0.0" />
           </div>
           <Label>Scale</Label>
           <div className="flex items-center gap-1">
-            <Label>X</Label>
-            <Input value="0.0" />
-            <Label>Y</Label>
-            <Input value="0.0" />
-            <Label>Z</Label>
-            <Input value="0.0" />
+            <Label htmlFor="scale-x">X</Label>
+            <Input id="scale-x" value="0.0" />
+            <Label htmlFor="scale-y">Y</Label>
+            <Input id="scale-y" value="0.0" />
+            <Label htmlFor="scale-z">Z</Label>
+            <Input id="scale-z" value="0.0" />
           </div>
           <Label htmlFor="cast-shadow">Cast shadow</Label>
           <Checkbox value="on" id="cast-shadow" />
@@ -144,8 +156,8 @@ function App() {
           <Color />
         </Widget>
         <Widget value="debug" title="Debug">
-          <Label>Render specific texture</Label>
-          <Checkbox value="on" />
+          <Label htmlFor="specific">Render specific texture</Label>
+          <Checkbox id="specific" value="on" />
           <Label>Material texture</Label>
           <Select.Root value="roughnessMetallic">
             <Select.Trigger>
@@ -163,7 +175,7 @@ function App() {
           </Select.Root>
         </Widget>
       </Accordion.Root>
-    </>
+    </div>
   );
 }
 
@@ -177,11 +189,11 @@ function Color() {
       content={
         <Tabs
           tabs={[
-            { title: "Texture", content: <div className="h-[280px]" /> },
             {
               title: "Color",
               content: <ColorPicker />,
             },
+            { title: "Texture", content: <div className="h-[280px]" /> },
           ]}
         />
       }
@@ -248,15 +260,17 @@ if (DEBUGGING_ON && "GPUDevice" in window) {
   };
 }
 
-setupRendering().then(() => {
-  if (!DEBUGGING_ON) {
-    return;
-  }
+// setupRendering().then(() => {
+//   // TODO: move things around so here I have access to gltf
 
-  let message = "GPU resource stats:\n";
-  for (const [key, value] of Object.entries(gpuResourceStats)) {
-    message += `${key}: ${value}\n`;
-  }
+//   if (!DEBUGGING_ON) {
+//     return;
+//   }
 
-  console.log(message);
-});
+//   let message = "GPU resource stats:\n";
+//   for (const [key, value] of Object.entries(gpuResourceStats)) {
+//     message += `${key}: ${value}\n`;
+//   }
+
+//   console.log(message);
+// });

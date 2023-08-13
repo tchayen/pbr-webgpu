@@ -9,7 +9,7 @@ import { getBRDFConvolutionLUT } from "./lib/getBRDFconvolution";
 import { GltfPbrRenderer } from "./lib/renderer/GltfPbrRenderer";
 import { parseHDR } from "./lib/parseHDR";
 import { logTime } from "./log";
-import { DEBUGGING_ON, config } from "./main";
+import { DEBUGGING_ON, config } from "./config";
 
 export async function setupRendering() {
   const [glb, hdri] = await Promise.all(
@@ -24,12 +24,14 @@ export async function setupRendering() {
     console.log(gltf);
   }
 
-  const canvas = document.createElement("canvas");
-  canvas.width = window.innerWidth * window.devicePixelRatio;
-  canvas.height = window.innerHeight * window.devicePixelRatio;
-  canvas.style.setProperty("width", `${window.innerWidth}px`);
-  canvas.style.setProperty("height", `${window.innerHeight}px`);
-  document.body.appendChild(canvas);
+  const canvas = document.getElementById("canvas") as HTMLCanvasElement;
+
+  const width = canvas.clientWidth;
+  const height = canvas.clientHeight;
+  canvas.width = width * window.devicePixelRatio;
+  canvas.height = height * window.devicePixelRatio;
+  canvas.style.setProperty("width", `${width}px`);
+  canvas.style.setProperty("height", `${height}px`);
 
   logTime("Created canvas.");
 

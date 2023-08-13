@@ -14,15 +14,15 @@ export class Camera {
   private isDragging: boolean = false;
 
   constructor(
+    canvas: HTMLCanvasElement,
     public pitch: number,
     public yaw: number,
-    canvas?: HTMLCanvasElement,
     distance?: number,
   ) {
-    (canvas ?? window).addEventListener("mousedown", this.handleMouseDown);
-    (canvas ?? window).addEventListener("mousemove", this.handleMouseMove);
-    (canvas ?? window).addEventListener("mouseup", this.handleMouseUp);
-    (canvas ?? window).addEventListener("wheel", this.handleMouseWheel);
+    canvas.addEventListener("mousedown", this.handleMouseDown);
+    canvas.addEventListener("mousemove", this.handleMouseMove);
+    canvas.addEventListener("mouseup", this.handleMouseUp);
+    canvas.addEventListener("wheel", this.handleMouseWheel);
 
     if (distance) {
       this.distance = distance;

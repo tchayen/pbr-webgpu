@@ -17,7 +17,7 @@ export function Tabs({ tabs }: TabsProps) {
           return (
             <TabsPrimitive.Trigger
               key={key}
-              className="flex-1 select-none rounded-t-[4px] text-sm font-semibold text-slatedark12 outline-none focus-visible:ring-1 focus-visible:ring-inset focus-visible:ring-bluedark8 data-[state=active]:bg-slatedark5"
+              className="flex-1 select-none rounded-t-[4px] text-sm font-semibold text-slatedark12 outline-none focus-visible:ring-1 focus-visible:ring-inset focus-visible:ring-bluedark8 data-[state=active]:bg-slatedark5 data-[state=inactive]:text-slatedark9"
               value={key}
             >
               {title}

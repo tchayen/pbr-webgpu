@@ -1,9 +1,10 @@
 import React from "react";
+import { twMerge } from "tailwind-merge";
 
 export function Chevron({ className }: { className?: string }) {
   return (
     <svg
-      className={className}
+      className={twMerge("shrink-0 -rotate-90", className)}
       width="10"
       height="8"
       viewBox="0 0 10 8"

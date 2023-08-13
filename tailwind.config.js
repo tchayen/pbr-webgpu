@@ -5,7 +5,7 @@ export default {
   content: ["./index.html", "./src/**/*.{js,ts,jsx,tsx}"],
   theme: {
     fontSize: {
-      sm: "13px",
+      sm: "12px",
     },
     extend: {
       animation: {
