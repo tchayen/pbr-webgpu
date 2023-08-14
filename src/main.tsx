@@ -17,7 +17,6 @@ import { Tabs } from "./ui/Tabs";
 import { ColorPicker } from "./ui/ColorPicker";
 import { Store } from "./ui/Store";
 import { useResizer } from "./ui/useResizer";
-import { Tree } from "./ui/Tree";
 import { List } from "./ui/List";
 
 type ToneMapping = "reinhard" | "uncharted2" | "aces" | "lottes";
@@ -48,7 +47,7 @@ function App() {
       <Accordion.Root
         type="multiple"
         defaultValue={["list2", "scene", "node", "material", "debug"]}
-        className="relative flex h-full select-none flex-col overflow-y-scroll bg-slatedark4"
+        className="relative flex select-none flex-col gap-0.5 overflow-y-scroll p-0.5"
         style={{ width }}
       >
         <div
@@ -183,7 +182,7 @@ function Color() {
   return (
     <Popover
       trigger={
-        <button className="h-6 w-14 rounded-[4px] bg-indigo-300 outline-none focus:outline-none focus:ring-1 focus:ring-bluedark8" />
+        <button className="h-6 w-14 rounded bg-indigo-300 outline-none focus:outline-none focus:ring-1 focus:ring-bluedark8" />
       }
       className="w-[200px]"
       content={

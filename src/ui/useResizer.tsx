@@ -20,7 +20,7 @@ export function useResizer() {
       }
 
       const delta = e.clientX - startX.current;
-      setWidth(startWidth.current - delta);
+      setWidth(Math.round(startWidth.current - delta));
     }
 
     function onPointerUp() {

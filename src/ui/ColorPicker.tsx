@@ -162,12 +162,12 @@ export function ColorPicker() {
       <div className="p-2">{hueSlider}</div>
       <div className="flex items-center justify-between gap-[52px] p-2">
         <Label>Color</Label>
-        <div className="flex items-center rounded-[4px] bg-slatedark1">
+        <div className="flex items-center rounded bg-slatedark1">
           <button
             onClick={() => {
               navigator.clipboard.writeText(text);
             }}
-            className="flex h-6 w-6 shrink-0 items-center justify-center rounded-[4px] bg-slatedark1 outline-none hover:bg-slatedark3 focus-visible:ring-1 focus-visible:ring-inset focus-visible:ring-bluedark8 active:bg-slatedark4"
+            className="flex h-6 w-6 shrink-0 items-center justify-center rounded bg-slatedark1 outline-none hover:bg-slatedark3 focus-visible:ring-1 focus-visible:ring-inset focus-visible:ring-bluedark8 active:bg-slatedark4"
           >
             <svg
               width="16"

@@ -15,7 +15,7 @@ export function Widget({
   ...rest
 }: WidgetProps & ComponentProps<typeof Accordion.Item>) {
   return (
-    <Accordion.Item {...rest} className="overflow-hidden">
+    <Accordion.Item {...rest} className="shrink-0 overflow-hidden rounded">
       <Accordion.Header>
         <Accordion.Trigger className="group flex h-6 w-full items-center gap-1 bg-slatedark7 px-2 font-semibold outline-none focus-visible:ring-1 focus-visible:ring-inset focus-visible:ring-bluedark8">
           <Chevron
@@ -32,7 +32,7 @@ export function Widget({
         className={twMerge(
           animations &&
             "data-[state=closed]:animate-slide-up data-[state=open]:animate-slide-down",
-          "overflow-hidden p-2 pl-4",
+          "overflow-hidden bg-slatedark4 p-2 pl-4",
           className,
         )}
       >
