@@ -9,7 +9,6 @@
     "preview": "vite preview"
   },
   "dependencies": {
-    "@petamoriken/float16": "^3.8.1",
     "@radix-ui/colors": "^1.0.0",
     "@radix-ui/react-select": "^1.2.2",
     "autoprefixer": "^10.4.14",

@@ -1,5 +1,5 @@
 // Based on https://github.com/vorg/parse-hdr
-import { Float16Array } from "@petamoriken/float16";
+import {toHalf} from "./toHalf";
 
 let radiancePattern = "#\\?RADIANCE";
 let commentPattern = "#.*";
@@ -59,7 +59,7 @@ export async function parseHDR(url: string) {
 
   readPixelsRawRLE(buffer, data, 0, fileOffset, scanlineWidth, scanlinesCount);
 
-  let floatData = new Float16Array(width * height * 4);
+  let floatData = new Uint16Array(width * height * 4);
   for (let offset = 0; offset < data.length; offset += 4) {
     let r = data[offset + 0] / 255;
     let g = data[offset + 1] / 255;
@@ -73,9 +73,9 @@ export async function parseHDR(url: string) {
 
     let floatOffset = offset;
 
-    floatData[floatOffset + 0] = r;
-    floatData[floatOffset + 1] = g;
-    floatData[floatOffset + 2] = b;
+    floatData[floatOffset + 0] = toHalf(r);
+    floatData[floatOffset + 1] = toHalf(g);
+    floatData[floatOffset + 2] = toHalf(b);
     floatData[floatOffset + 3] = 1.0;
   }
 
