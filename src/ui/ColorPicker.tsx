@@ -160,7 +160,7 @@ export function ColorPicker() {
     <div className="flex flex-col pt-2">
       {areaPicker}
       <div className="p-2">{hueSlider}</div>
-      <div className="flex items-center justify-between gap-[52px] p-2">
+      <div className="flex items-center justify-between gap-[56px] p-2">
         <Label>Color</Label>
         <div className="flex items-center rounded bg-slatedark1">
           <button
