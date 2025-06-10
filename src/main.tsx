@@ -4,13 +4,6 @@ import { Renderer } from "./Renderer";
 import * as Select from "./ui/Select";
 import { createRoot } from "react-dom/client";
 
-// const canvas = document.createElement("canvas");
-// canvas.width = window.innerWidth * window.devicePixelRatio;
-// canvas.height = window.innerHeight * window.devicePixelRatio;
-// canvas.style.width = `${window.innerWidth}px`;
-// canvas.style.height = `${window.innerHeight}px`;
-// document.body.appendChild(canvas);
-
 const renderer = new Renderer();
 
 const environmentToFile = {
@@ -62,8 +55,8 @@ function App() {
           height: "100%",
           display: "flex",
         }}
-        width={window.innerWidth}
-        height={window.innerHeight}
+        width={window.innerWidth * window.devicePixelRatio}
+        height={window.innerHeight * window.devicePixelRatio}
       />
       <div className="absolute top-0 left-0">
         <div className="m-2 flex flex-col gap-4 rounded-md bg-slate3 p-4 shadow-sm">

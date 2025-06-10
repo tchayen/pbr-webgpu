@@ -22,7 +22,7 @@ I hope it will be useful to you!
    npm run vite dev
    ```
 
-3. Open [http://localhost:3000](http://localhost:3000) in your browser.
+3. Open [http://localhost:5173](http://localhost:5173) in your browser.
 
 ## Sources
 
